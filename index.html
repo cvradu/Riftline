@@ -1525,7 +1525,7 @@ function drawMantisIcon(g,k){
 // Art: the painted walk and standing sheet (assets/thistle.webp). Until it loads, and for her icons, a stand-in is painted in code.
 CH.thistle={key:'thistle',name:'Thistle',role:'Mage',reach:'Ranged',resource:'Sap',r:34,ranged:true,
   blurb:'A tiny gardener riding Mother, a huge carnivorous plant. Fills the ground with a spreading cloud of poison pollen, has Mother swallow enemies and spit them back into it, walls them in with thickets of burrs that stop them dashing out, and lashes them with a thorned vine.',
-  base:{hp:600,hpG:96,hp5:6,hp5G:0.6,res:320,resG:38,rg5:8,rg5G:0.7,ad:54,adG:3,as:0.66,asG:2.2,armor:24,armorG:4.2,mr:30,mrG:1.3,ms:335,range:525,windup:0.22,proj:1500},
+  base:{hp:660,hpG:104,hp5:6,hp5G:0.6,res:320,resG:38,rg5:8,rg5G:0.7,ad:54,adG:3,as:0.66,asG:2.2,armor:30,armorG:4.2,mr:32,mrG:1.3,ms:335,range:525,windup:0.22,proj:1500},
   castKind:{Q:'swing',E:'shot',RMB:'shot',R:'slam'},
   dash:{name:'Burrow',desc:'Mother dives underground and surfaces up to 300 units toward the cursor, untargetable on the way. Enemies within 170 units of where she surfaces are knocked back 180 units.',
     cast(c,ax,ay){const ang=angTo(c,ax,ay),len=clamp(hyp(ax-c.x,ay-c.y),100,TH.dash.len);c.untargetT=Math.max(c.untargetT,len/TH.dash.speed);
@@ -1540,7 +1540,7 @@ const TH={H:135,stride:170,over:0.2,
   r:{range:650,r:150,delay:0.6,hold:1.5,spit:300,life:5,bite:260,biteCd:1},
   dash:{len:300,speed:1000,r:170,knock:180}};
 // her poison: per stack, every 0.5s
-const thPoison=c=>1.5+0.4*c.level+0.03*c.ad;
+const thPoison=c=>3.5+0.9*c.level+0.07*c.ad;
 // grounded: no Space dash and no ability that moves you (knockbacks still move you)
 function groundUnit(u,dur){if(u.kind!=='champ'||!u.alive)return;if(!(u.groundT>0))popText(u.x,u.y,'Grounded','#c8a36a',14,heightOf(u)+44);u.groundT=Math.max(u.groundT||0,dur);}
 const slowed=u=>u.slows.some(s=>s.until>G.t);
@@ -1550,7 +1550,7 @@ function thSurface(c){ring(c.x,c.y,10,TH.dash.r,'#8a6a3a',0.4);spark(c.x,c.y,'#b
   for(const u of enemiesOf(c.team))if(u.kind!=='tower'&&hittable(u)&&dist(c,u)<TH.dash.r+u.r)knockback(u,angTo(c,u.x,u.y),TH.dash.knock,0.25);}
 
 T2.Q={name:'Thornlash',max:5,cd:[7,6.5,6,5.5,5],cost:[40,45,50,55,60],range:TH.q.range,
-  dmg:(c,r)=>[60,95,130,165,200][r-1]+0.6*c.ad,
+  dmg:(c,r)=>[80,125,170,215,260][r-1]+0.8*c.ad,
   desc:(c,r,a)=>`Mother whips a thorned vine in a line ${TH.q.range} units long, dealing <span class="ph">${n0(a.dmg(c,r))}</span> magic damage (60/95/130/165/200 + 60% AD) to every enemy it hits. Enemies caught by the last ${TH.q.tip} units, the tip, take 50% more. ${n0(a.cd[r-1]*100/(100+c.ah))}s cooldown.`,
   cast(c,ax,ay,r,a){const ang=angTo(c,ax,ay);c.thQ={ang,t0:G.t};beginCast(c,TH.q.wind,ang,()=>thLash(c,ang,r));return true;}};
 function thLash(c,ang,r){const ca=Math.cos(ang),sa=Math.sin(ang),L=TH.q.range;c.thQ=null;
@@ -1576,7 +1576,7 @@ function fogHides(u){for(const k of G.clouds){if(k.team!==u.team||cloudOn(k,u))c
     for(const e of G.champs)if(e.team!==u.team&&e.alive&&cloudOn(k,e)&&dist(e,u)>=170)return true;}return false;}
 
 T2.E={name:'Burr Volley',max:5,cd:[12,11,10,9,8],cost:[60,60,60,60,60],range:TH.e.range,
-  dmg:(c,r)=>[40,65,90,115,140][r-1]+0.4*c.ad,
+  dmg:(c,r)=>[60,95,130,165,200][r-1]+0.5*c.ad,
   desc:(c,r,a)=>`Mother flings 3 clumps of burrs that land in a line across the cursor, up to ${TH.e.range} units away, and take root as thickets for ${TH.e.life}s. Enemies under a thicket when it lands take <span class="ph">${n0(a.dmg(c,r))}</span> magic damage (40/65/90/115/140 + 40% AD). Enemies standing in a thicket are slowed by ${TH.e.slow*100}% and are <b>grounded</b> until ${TH.e.linger}s after they leave: no Space dash and no abilities that move them. ${n0(a.cd[r-1]*100/(100+c.ah))}s cooldown.`,
   cast(c,ax,ay,r,a){const ang=angTo(c,ax,ay),l=Math.min(TH.e.range,hyp(ax-c.x,ay-c.y)),cx=c.x+Math.cos(ang)*l,cy=c.y+Math.sin(ang)*l,px=-Math.sin(ang),py=Math.cos(ang);
     // the line runs across the throw, centred on the cursor
@@ -1593,7 +1593,7 @@ function updateThickets(){if(!G.thickets.length)return;
   G.thickets=G.thickets.filter(g=>G.t<g.until);}
 
 T2.R={name:"Mother's Maw",max:3,cd:[100,85,70],cost:[100,100,100],range:TH.r.range,
-  dmg:(c,r)=>[150,250,350][r-1]+0.8*c.ad, bite:(c,r)=>[30,50,70][r-1]+0.2*c.ad,
+  dmg:(c,r)=>[200,325,450][r-1]+1.0*c.ad, bite:(c,r)=>[40,65,90][r-1]+0.3*c.ad,
   desc:(c,r,a)=>`A giant flytrap erupts up to ${TH.r.range} units away. After ${TH.r.delay}s it snaps shut on the nearest enemy champion within ${TH.r.r} units (or the nearest other enemy), dealing <span class="ph">${n0(a.dmg(c,r))}</span> magic damage (150/250/350 + 80% AD). A champion it catches is swallowed for ${TH.r.hold}s, then spat out ${TH.r.spit} units toward you. The flytrap stays rooted for ${TH.r.life}s, biting the nearest enemy within ${TH.r.bite} units every second for <span class="ph">${n0(a.bite(c,r))}</span> magic damage (30/50/70 + 20% AD). ${n0(a.cd[r-1]*100/(100+c.ah))}s cooldown.`,
   cast(c,ax,ay,r,a){const ang=angTo(c,ax,ay),l=Math.min(TH.r.range,hyp(ax-c.x,ay-c.y)),p=clampWalk(c.x+Math.cos(ang)*l,c.y+Math.sin(ang)*l,40);
     beginCast(c,0.2,ang,()=>{G.traps.push({x:p.x,y:p.y,team:c.team,src:c,r,t0:G.t,snap:G.t+TH.r.delay,until:G.t+TH.r.delay+TH.r.life,next:0,held:null,biteT:-9,snapped:false});
