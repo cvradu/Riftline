@@ -99,6 +99,7 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .meter.res.corrupt i{background:linear-gradient(#c084fc,#6d28d9)}
 .meter.res.luck i{background:linear-gradient(#ffe08a,#b8862a)}
 .meter.res.scan i{background:linear-gradient(#a8fbff,#1fb8cf)}
+.meter.res.sap i{background:linear-gradient(#a8e86a,#3f8a22)}
 .slot .chg{position:absolute;right:2px;top:2px;font:800 11px/1.3 var(--display);background:rgba(0,0,0,.72);padding:0 4px;border-radius:2px}
 .slot .chg:empty{display:none}
 .slot.dashslot{margin-left:6px}
@@ -438,7 +439,7 @@ h2{font:700 15px var(--display);letter-spacing:.14em;text-transform:uppercase;co
         </div>
       </div>
       <div class="startbar">
-        <div class="opts"><div class="opt"><label>Opponent</label><div class="seg" id="optFoe"><button type="button" data-v="random" aria-pressed="true">Random</button><button type="button" data-v="cora">Cora</button><button type="button" data-v="shade">Shade</button><button type="button" data-v="viktor">Viktor</button><button type="button" data-v="blackjack">Black Jack</button><button type="button" data-v="marty">Marty</button><button type="button" data-v="mantis">Mantis</button></div></div>
+        <div class="opts"><div class="opt"><label>Opponent</label><div class="seg" id="optFoe"><button type="button" data-v="random" aria-pressed="true">Random</button><button type="button" data-v="cora">Cora</button><button type="button" data-v="shade">Shade</button><button type="button" data-v="viktor">Viktor</button><button type="button" data-v="blackjack">Black Jack</button><button type="button" data-v="marty">Marty</button><button type="button" data-v="mantis">Mantis</button><button type="button" data-v="thistle">Thistle</button></div></div>
       <div class="opt"><label>Kills to win</label><div class="seg" id="optKills"><button type="button" data-v="1">1</button><button type="button" data-v="3" aria-pressed="true">3</button><button type="button" data-v="5">5</button></div></div>
       <div class="opt"><label>XP rate</label><div class="seg" id="optXp"><button type="button" data-v="1" aria-pressed="true">1×</button><button type="button" data-v="2">2×</button><button type="button" data-v="4">4×</button></div></div></div>
         <button type="button" class="go" id="startBtn">Enter the lane</button>
@@ -638,15 +639,15 @@ function updateBleeds(){for(const u of [...G.champs,...G.minions]){const b=u.ble
 // poison: a stacking magic damage-over-time any kit can apply. Each stack carries the per-tick damage its source gave it, and every
 // 0.5s the target takes the sum of its stacks. A new stack refreshes the 2s hold; once the hold runs out the oldest stack drops each tick
 const POISON={max:12,tick:0.5,hold:2};
-function poison(u,src,per){if(!u.alive||u.kind==='tower'||!(per>0))return;
+function poison(u,src,per,n){if(!u.alive||u.kind==='tower'||!(per>0))return;
   const p=u.poison||(u.poison={stacks:[],next:G.t+POISON.tick,until:0});
-  if(p.stacks.length>=POISON.max)p.stacks.shift();p.stacks.push({src,per});p.until=G.t+POISON.hold;}
+  for(let i=0;i<(n||1);i++){if(p.stacks.length>=POISON.max)p.stacks.shift();p.stacks.push({src,per});}p.until=G.t+POISON.hold;}
 const poisonStacks=u=>u.poison?u.poison.stacks.length:0;
 function updatePoisons(){for(const u of [...G.champs,...G.minions]){const p=u.poison;if(!p)continue;if(!u.alive){u.poison=null;continue;}
   if(G.t<p.next)continue;p.next+=POISON.tick;
   // one damage instance per source, so each champion's poison is credited to them
   const by=new Map();for(const s of p.stacks)by.set(s.src,(by.get(s.src)||0)+s.per);
-  for(const [src,amt] of by)dealDamage(src,u,amt,'magic',{});spark(u.x,u.y,'#8fd14f',3+Math.min(6,p.stacks.length>>1));
+  for(const [src,amt] of by)dealDamage(src,u,amt,'magic',{dot:true});spark(u.x,u.y,'#8fd14f',3+Math.min(6,p.stacks.length>>1));
   if(G.t>=p.until)p.stacks.shift();if(!p.stacks.length||!u.alive)u.poison=null;}}
 // recall: the axe flies back from wherever it is, hitting everything along the way, and arms the cleave when caught
 function recallAxe(c,k,dmg){
@@ -1520,6 +1521,152 @@ function drawMantisIcon(g,k){
       g.fillStyle=D;g.beginPath();g.arc(15,12,2.4,0,TAU);g.fill();g.restore();}
     diamond(26,32,6,O);g.strokeStyle=O;g.lineWidth=1.6;g.beginPath();g.moveTo(26,22);g.lineTo(26,24);g.moveTo(26,40);g.lineTo(26,42);g.moveTo(16,32);g.lineTo(18,32);g.moveTo(34,32);g.lineTo(36,32);g.stroke();}
   if(k==='DASH'){g.strokeStyle=Gn;g.lineWidth=2.6;for(let i=0;i<3;i++){g.beginPath();g.moveTo(8+i*3,40-i*9);g.lineTo(28+i*3,40-i*9);g.stroke();}poly([[30,42],[40,22],[46,26],[36,42]],M,D,1.4);poly([[40,22],[46,14],[44,26]],Gn);}}
+// ================= Thistle: a garden mage riding Mother, a huge carnivorous plant =================
+// Placeholder art: her sprite sheet and icons are painted in code at load, until hand-drawn sheets arrive.
+CH.thistle={key:'thistle',name:'Thistle',role:'Mage',reach:'Ranged',resource:'Sap',r:34,ranged:true,
+  blurb:'A tiny gardener riding Mother, a huge carnivorous plant. Lashes enemies with a thorned vine, fills the ground with poison pollen, pins them inside it with burrs that stop them dashing out, and lets Mother swallow whoever is left. Every ability poisons, and poison stacks.',
+  base:{hp:600,hpG:96,hp5:6,hp5G:0.6,res:320,resG:38,rg5:8,rg5G:0.7,ad:54,adG:3,as:0.66,asG:2.2,armor:24,armorG:4.2,mr:30,mrG:1.3,ms:335,range:525,windup:0.22,proj:1500},
+  castKind:{Q:'swing',E:'shot',RMB:'shot',R:'slam'},
+  dash:{name:'Burrow',desc:'Mother dives underground and surfaces up to 300 units toward the cursor, untargetable on the way. Enemies within 170 units of where she surfaces are knocked back 180 units.',
+    cast(c,ax,ay){const ang=angTo(c,ax,ay),len=clamp(hyp(ax-c.x,ay-c.y),100,TH.dash.len);c.untargetT=Math.max(c.untargetT,len/TH.dash.speed);
+      ring(c.x,c.y,10,70,'#8a6a3a',0.35);spark(c.x,c.y,'#8a6a3a',10);dash(c,ang,len,TH.dash.speed,{kind:'burrow',onEnd:()=>thSurface(c)});return true;}},
+  ab:{}};
+const T2=CH.thistle.ab;
+// tuning (prototype numbers, not yet checked against bot duels)
+const TH={H:120,stride:150,over:0.2,
+  q:{range:650,half:45,tip:170,wind:0.25},
+  w:{range:800,r:260,dur:4,fly:0.45},
+  e:{range:800,speed:1500,radius:22,spread:0.18,slow:0.3,slowT:1.5,ground:1.5},
+  r:{range:650,r:150,delay:0.6,hold:1.5,spit:300,life:5,bite:260,biteCd:1},
+  dash:{len:300,speed:1000,r:170,knock:180}};
+// her poison: per stack, every 0.5s
+const thPoison=c=>1.5+0.4*c.level+0.03*c.ad;
+// grounded: no Space dash and no ability that moves you (knockbacks still move you)
+function groundUnit(u,dur){if(u.kind!=='champ'||!u.alive)return;if(!(u.groundT>0))popText(u.x,u.y,'Grounded','#c8a36a',14,heightOf(u)+44);u.groundT=Math.max(u.groundT||0,dur);}
+const slowed=u=>u.slows.some(s=>s.until>G.t);
+// Overgrowth: her abilities hit slowed or grounded enemies harder
+function thHit(c,u,dmg,stacks){if(!u.alive)return;const over=slowed(u)||u.groundT>0;dealDamage(c,u,dmg*(over?1+TH.over:1),'magic',{});if(stacks)poison(u,c,thPoison(c),stacks);}
+function thSurface(c){ring(c.x,c.y,10,TH.dash.r,'#8a6a3a',0.4);spark(c.x,c.y,'#b08a4a',14);
+  for(const u of enemiesOf(c.team))if(u.kind!=='tower'&&hittable(u)&&dist(c,u)<TH.dash.r+u.r)knockback(u,angTo(c,u.x,u.y),TH.dash.knock,0.25);}
+
+T2.Q={name:'Thornlash',max:5,cd:[7,6.5,6,5.5,5],cost:[40,45,50,55,60],range:TH.q.range,
+  dmg:(c,r)=>[60,95,130,165,200][r-1]+0.6*c.ad,
+  desc:(c,r,a)=>`Mother whips a thorned vine in a line ${TH.q.range} units long, dealing <span class="ph">${n0(a.dmg(c,r))}</span> magic damage (60/95/130/165/200 + 60% AD) and 1 poison stack to every enemy it hits. Enemies caught by the last ${TH.q.tip} units, the tip, take 50% more damage and 2 stacks. ${n0(a.cd[r-1]*100/(100+c.ah))}s cooldown.`,
+  cast(c,ax,ay,r,a){const ang=angTo(c,ax,ay);c.thQ={ang,t0:G.t};beginCast(c,TH.q.wind,ang,()=>thLash(c,ang,r));return true;}};
+function thLash(c,ang,r){const ca=Math.cos(ang),sa=Math.sin(ang),L=TH.q.range;c.thQ=null;
+  for(const u of enemiesOf(c.team)){if(u.kind==='tower'||!hittable(u))continue;const dx=u.x-c.x,dy=u.y-c.y,al=dx*ca+dy*sa,pe=Math.abs(-dx*sa+dy*ca);
+    if(al<-u.r||al>L+u.r||pe>TH.q.half+u.r)continue;const tip=al>L-TH.q.tip;
+    thHit(c,u,T2.Q.dmg(c,r)*(tip?1.5:1),tip?2:1);impact(u,'#9be05a',u.kind==='champ');
+    if(tip&&u.kind==='champ'&&(c===G.player||u===G.player))popText(u.x,u.y,'Tip','#c8f58a',14,140);}
+  G.fx.push({k:'thlash',x:c.x,y:c.y,ang,len:L,t:0,dur:0.35});SFX.play('swing',c.x,c.y,0.9);if(c===G.player)shake(2,0.08);}
+
+T2.RMB={name:'Pollen Cloud',max:5,cd:[16,15,14,13,12],cost:[70,75,80,85,90],range:TH.w.range,
+  desc:(c,r,a)=>`Mother spits a seed pod up to ${TH.w.range} units. It bursts into a cloud of poison pollen reaching ${TH.w.r} units from where it lands, lasting ${TH.w.dur}s. Enemies inside gain a poison stack when it bursts and every second after. Enemies inside can't see anything outside the cloud. ${n0(a.cd[r-1]*100/(100+c.ah))}s cooldown.`,
+  cast(c,ax,ay,r,a){const ang=angTo(c,ax,ay),l=Math.min(TH.w.range,hyp(ax-c.x,ay-c.y)),x=c.x+Math.cos(ang)*l,y=c.y+Math.sin(ang)*l;
+    beginCast(c,0.15,ang,()=>{G.clouds.push({x,y,x0:c.x,y0:c.y,r:TH.w.r,team:c.team,src:c,t0:G.t,land:G.t+TH.w.fly,until:G.t+TH.w.fly+TH.w.dur,next:G.t+TH.w.fly});SFX.play('cast',c.x,c.y,0.6);});return true;}};
+const cloudOn=(k,u)=>G.t>=k.land&&hyp(u.x-k.x,u.y-k.y)<k.r;
+function updateClouds(){if(!G.clouds.length)return;
+  for(const k of G.clouds){if(G.t<k.next)continue;
+    if(k.next===k.land){ring(k.x,k.y,20,k.r,'#b6e05a',0.5);spark(k.x,k.y,'#d8f08a',12);}
+    k.next+=1;for(const u of enemiesOf(k.team))if(u.kind!=='tower'&&hittable(u)&&cloudOn(k,u))poison(u,k.src,thPoison(k.src));}
+  G.clouds=G.clouds.filter(k=>G.t<k.until);}
+// pollen blinds: a champion standing in an enemy cloud sees nothing outside it, except what is right beside them
+const fogged=u=>u.alive&&G.clouds.some(k=>k.team!==u.team&&cloudOn(k,u));
+function fogHides(u){for(const k of G.clouds){if(k.team!==u.team||cloudOn(k,u))continue;
+    for(const e of G.champs)if(e.team!==u.team&&e.alive&&cloudOn(k,e)&&dist(e,u)>=170)return true;}return false;}
+
+T2.E={name:'Burr Volley',max:5,cd:[12,11,10,9,8],cost:[60,60,60,60,60],range:TH.e.range,
+  dmg:(c,r)=>[40,65,90,115,140][r-1]+0.4*c.ad,
+  desc:(c,r,a)=>`Mother flings 3 burrs in a narrow fan, up to ${TH.e.range} units. Each enemy hit takes <span class="ph">${n0(a.dmg(c,r))}</span> magic damage (40/65/90/115/140 + 40% AD) and 1 poison stack, is slowed by ${TH.e.slow*100}% for ${TH.e.slowT}s and is <b>grounded</b> for ${TH.e.ground}s: no Space dash and no abilities that move them. One burr per enemy per cast. ${n0(a.cd[r-1]*100/(100+c.ah))}s cooldown.`,
+  cast(c,ax,ay,r,a){const ang=angTo(c,ax,ay),hit=new Set();
+    beginCast(c,0.2,ang,()=>{for(const s of [-1,0,1])shoot(c,{ang:ang+s*TH.e.spread,speed:TH.e.speed,range:TH.e.range,radius:TH.e.radius,hitSet:hit,kind:'burr',onHit:u=>thBurr(c,u,r)});SFX.play('swing',c.x,c.y,0.7);});return true;}};
+function thBurr(c,u,r){if(u.kind==='tower')return;thHit(c,u,T2.E.dmg(c,r),1);slow(u,TH.e.slow,TH.e.slowT);groundUnit(u,TH.e.ground);spark(u.x,u.y,'#c8a36a',6);}
+
+T2.R={name:"Mother's Maw",max:3,cd:[100,85,70],cost:[100,100,100],range:TH.r.range,
+  dmg:(c,r)=>[150,250,350][r-1]+0.8*c.ad, bite:(c,r)=>[30,50,70][r-1]+0.2*c.ad,
+  desc:(c,r,a)=>`A giant flytrap erupts up to ${TH.r.range} units away. After ${TH.r.delay}s it snaps shut on the nearest enemy champion within ${TH.r.r} units (or the nearest other enemy), dealing <span class="ph">${n0(a.dmg(c,r))}</span> magic damage (150/250/350 + 80% AD) and 3 poison stacks. A champion it catches is swallowed for ${TH.r.hold}s, then spat out ${TH.r.spit} units toward you. The flytrap stays rooted for ${TH.r.life}s, biting the nearest enemy within ${TH.r.bite} units every second for <span class="ph">${n0(a.bite(c,r))}</span> magic damage (30/50/70 + 20% AD) and 1 poison stack. ${n0(a.cd[r-1]*100/(100+c.ah))}s cooldown.`,
+  cast(c,ax,ay,r,a){const ang=angTo(c,ax,ay),l=Math.min(TH.r.range,hyp(ax-c.x,ay-c.y)),p=clampWalk(c.x+Math.cos(ang)*l,c.y+Math.sin(ang)*l,40);
+    beginCast(c,0.2,ang,()=>{G.traps.push({x:p.x,y:p.y,team:c.team,src:c,r,t0:G.t,snap:G.t+TH.r.delay,until:G.t+TH.r.delay+TH.r.life,next:0,held:null,biteT:-9,snapped:false});
+      ring(p.x,p.y,10,TH.r.r,'#9be05a',0.5);spark(p.x,p.y,'#8a6a3a',10);SFX.play('quake',p.x,p.y,0.4);});return true;}};
+const nearestFoe=(k,team,R,champsOnly)=>{let best=null,bd=1e9;for(const u of enemiesOf(team)){if(u.kind==='tower'||!hittable(u)||(champsOnly&&u.kind!=='champ'))continue;const d=hyp(u.x-k.x,u.y-k.y)-u.r;if(d<R&&d<bd){bd=d;best=u;}}return best;};
+function updateTraps(){if(!G.traps.length)return;
+  for(const k of G.traps){const c=k.src;
+    if(!k.snapped&&G.t>=k.snap){k.snapped=true;k.biteT=G.t;k.next=G.t+TH.r.biteCd;
+      const u=nearestFoe(k,k.team,TH.r.r,true)||nearestFoe(k,k.team,TH.r.r,false);
+      if(u){thHit(c,u,T2.R.dmg(c,k.r),3);impact(u,'#9be05a',true);
+        if(u.kind==='champ'&&u.alive){k.held={u,until:G.t+TH.r.hold};u.swallowed=k;u.untargetT=Math.max(u.untargetT,TH.r.hold);u.stunT=Math.max(u.stunT,TH.r.hold);u.wind=u.cast=null;u.dash=null;
+          if(c===G.player||u===G.player){shake(6,0.2);popText(u.x,u.y,'Swallowed','#9be05a',16,150);}}}
+      SFX.play('crit',k.x,k.y,1);}
+    if(k.held){const u=k.held.u;
+      if(!u.alive){u.swallowed=null;k.held=null;}
+      else{u.x=k.x;u.y=k.y;u.vx=u.vy=0;
+        if(G.t>=k.held.until){u.swallowed=null;u.untargetT=0;k.held=null;const ang=c.alive?angTo(k,c.x,c.y):angTo(k,FOUNT[k.team].x,FOUNT[k.team].y);
+          knockback(u,ang,TH.r.spit,0.35);spark(u.x,u.y,'#9be05a',10);}}}
+    else if(k.snapped&&G.t>=k.next){k.next+=TH.r.biteCd;const u=nearestFoe(k,k.team,TH.r.bite,false);if(u){thHit(c,u,T2.R.bite(c,k.r),1);k.biteT=G.t;k.biteA=angTo(k,u.x,u.y);impact(u,'#9be05a',u.kind==='champ');}}}
+  G.traps=G.traps.filter(k=>G.t<k.until||k.held);}
+CH.thistle.passive={name:'Overgrowth',desc:c=>`Your abilities deal ${TH.over*100}% more damage to enemies who are slowed or grounded. All of them poison: each stack you apply deals <span class="ph">${thPoison(c).toFixed(1)}</span> magic damage (1.5 + 0.4 per level + 3% AD) every 0.5s. Poison stacks up to ${POISON.max}, lasts ${POISON.hold}s after the newest stack, then falls off one stack per tick.`};
+
+// ---- placeholder sprite: Mother (a bulb with a toothed maw) carrying Thistle, painted into an 8-direction sheet ----
+// rows run clockwise on screen from facing the camera, like the hand-drawn sheets; columns: idle, walk x4, cast
+const TH_SHEET=(function(){const cw=220,ch=220,ax=110,ay=200,cv=document.createElement('canvas');cv.width=cw*6;cv.height=ch*8;const g=cv.getContext('2d');
+  const cell=(row,col)=>{const a=PI/2+row*PI/4,fx=Math.cos(a),fy=Math.sin(a),walk=col>=1&&col<=4?Math.sin((col-1)/4*TAU):0,open=col===5?1:0.35;
+    g.save();g.translate(col*cw+ax,row*ch+ay);
+    // leaf feet
+    for(let i=0;i<4;i++){const la=i/4*TAU+PI/4,lx=Math.cos(la)*34,ly=Math.sin(la)*12+(i%2?walk:-walk)*3;g.fillStyle='#2f5e22';g.beginPath();g.ellipse(lx,ly-4,20,8,la,0,TAU);g.fill();}
+    const head=()=>{const hx=fx*30,hy=-62+fy*10,hr=28;g.fillStyle='#5aa83a';g.beginPath();g.arc(hx,hy,hr,0,TAU);g.fill();g.strokeStyle='#2c5a1e';g.lineWidth=3;g.stroke();
+      if(fy>-0.3){const ma=Math.atan2(fy*0.6,fx),sp=0.35+0.5*open;g.fillStyle='#b8283f';g.beginPath();g.moveTo(hx,hy);g.arc(hx,hy,hr-3,ma-sp,ma+sp);g.closePath();g.fill();
+        g.fillStyle='#f4f0dc';for(let i=0;i<5;i++){const ta=ma-sp+(i+0.5)/5*sp*2;for(const s of [-1,1]){const r0=hr-3,ex=hx+Math.cos(ta)*r0,ey=hy+Math.sin(ta)*r0;g.beginPath();g.moveTo(ex,ey);g.lineTo(ex-Math.cos(ta)*8+Math.cos(ta+s*0.2)*2,ey-Math.sin(ta)*8);g.lineTo(hx+Math.cos(ta+0.08)*r0,hy+Math.sin(ta+0.08)*r0);g.fill();}}}
+      g.fillStyle='#8fd14f';g.beginPath();g.arc(hx-fx*6-8,hy-14,4,0,TAU);g.fill();};
+    const body=()=>{const gr=g.createRadialGradient(-12,-60,6,0,-44,52);gr.addColorStop(0,'#6fbf48');gr.addColorStop(1,'#2c5a1e');g.fillStyle=gr;g.beginPath();g.ellipse(0,-42+walk*2,46,40,0,0,TAU);g.fill();
+      g.strokeStyle='rgba(20,50,14,.6)';g.lineWidth=2;for(const o of [-22,0,22]){g.beginPath();g.moveTo(o,-78);g.quadraticCurveTo(o*1.3,-42,o,-6);g.stroke();}};
+    const rider=()=>{const rx=-fx*10,ry=-92+walk*2;g.fillStyle='#7b5aa6';g.beginPath();g.moveTo(rx-9,ry+14);g.lineTo(rx+9,ry+14);g.lineTo(rx+5,ry-4);g.lineTo(rx-5,ry-4);g.closePath();g.fill();
+      g.fillStyle='#f2c9a0';g.beginPath();g.arc(rx,ry-10,7,0,TAU);g.fill();
+      g.fillStyle='#e0c060';g.beginPath();g.ellipse(rx,ry-15,15,5,0,0,TAU);g.fill();g.beginPath();g.ellipse(rx,ry-19,8,6,0,PI,TAU);g.fill();
+      g.fillStyle='#b06ad8';g.beginPath();g.arc(rx+7,ry-21,4,0,TAU);g.fill();g.fillStyle='#4f8f35';g.fillRect(rx+6,ry-18,2,4);};
+    if(fy<0){head();body();rider();}else{body();rider();head();}
+    g.restore();};
+  for(let r=0;r<8;r++)for(let c=0;c<6;c++)cell(r,c);
+  return{img:cv,cw,ch,ax,ay,h:122};})();
+function thistleFrame(u){const fa=projAng(u.facing),row=((Math.round((fa-PI/2)/(PI/4))%8)+8)%8,fr={S:TH_SHEET,H:TH.H,row,col:0};
+  const ca=u.castAnim;if((u.cast||(ca&&G.t-ca.start<ca.W+0.25))||(u.atk&&G.t-u.atk.start<u.atk.W+0.15)){fr.col=5;return fr;}
+  if(hyp(u.vx,u.vy)>30){fr.col=1+Math.floor(((u.walkD||0)/TH.stride)%1*4);return fr;}
+  fr.sy=1+0.015*Math.sin(G.t*2.4+u.id);return fr;}
+// the vine, her pollen clouds and Mother's flytrap
+function drawThLash(){for(const f of G.fx){if(f.k!=='thlash')continue;const k=f.t/f.dur,ext=Math.min(1,k/0.3),L=f.len*ext,ca=Math.cos(f.ang),sa=Math.sin(f.ang),a=k<0.6?1:1-(k-0.6)/0.4;
+    const pts=[];for(let i=0;i<=14;i++){const t=i/14,w=Math.sin(t*PI*3-k*12)*18*(1-t*0.5);pts.push(P(f.x+ca*L*t-sa*w,f.y+sa*L*t+ca*w,50-t*30));}
+    ctx.save();ctx.globalAlpha=a;ctx.lineCap='round';ctx.strokeStyle='#244a18';ctx.lineWidth=9*SCALE;ctx.beginPath();pts.forEach((q,i)=>i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y));ctx.stroke();
+    ctx.strokeStyle='#6fbf48';ctx.lineWidth=4*SCALE;ctx.stroke();ctx.fillStyle='#c8f58a';for(let i=2;i<14;i+=2){ctx.beginPath();ctx.arc(pts[i].x,pts[i].y,2.5*SCALE,0,TAU);ctx.fill();}
+    const tip=pts[14];ctx.globalCompositeOperation='lighter';const gr=ctx.createRadialGradient(tip.x,tip.y,1,tip.x,tip.y,34*SCALE);gr.addColorStop(0,'rgba(220,255,160,.9)');gr.addColorStop(1,'rgba(120,200,60,0)');ctx.fillStyle=gr;ctx.beginPath();ctx.arc(tip.x,tip.y,34*SCALE,0,TAU);ctx.fill();ctx.restore();}}
+function drawCloudsGround(t){const p=G.player;
+  for(const c of G.champs)if(c.thQ&&c.cast&&(c.team===p.team||targetable(c))){const a=c.thQ.ang,ca=Math.cos(a),sa=Math.sin(a),h=TH.q.half,L=TH.q.range;
+    const quad=(l0,l1)=>{ctx.beginPath();ctx.moveTo(c.x+ca*l0-sa*h,c.y+sa*l0+ca*h);ctx.lineTo(c.x+ca*l1-sa*h,c.y+sa*l1+ca*h);ctx.lineTo(c.x+ca*l1+sa*h,c.y+sa*l1-ca*h);ctx.lineTo(c.x+ca*l0+sa*h,c.y+sa*l0-ca*h);ctx.closePath();};
+    ctx.fillStyle='rgba(155,224,90,.16)';quad(0,L-TH.q.tip);ctx.fill();ctx.fillStyle='rgba(200,245,138,.32)';quad(L-TH.q.tip,L);ctx.fill();}
+  for(const k of G.clouds){
+    if(G.t<k.land){groundEllipse(k.x,k.y,k.r,'rgba(182,224,90,.55)',4,[16,10]);continue;}
+    const life=clamp((k.until-G.t)/0.5,0,1)*clamp((G.t-k.land)/0.3,0,1),gr=ctx.createRadialGradient(k.x,k.y,10,k.x,k.y,k.r);
+    gr.addColorStop(0,`rgba(170,210,70,${0.42*life})`);gr.addColorStop(0.8,`rgba(130,180,50,${0.32*life})`);gr.addColorStop(1,'rgba(110,160,40,0)');ctx.fillStyle=gr;ctx.beginPath();ctx.arc(k.x,k.y,k.r,0,TAU);ctx.fill();
+    for(let i=0;i<9;i++){const an=i/9*TAU+t*0.25+k.t0,rr=k.r*(0.35+0.4*((i*37)%10)/10),q={x:k.x+Math.cos(an)*rr,y:k.y+Math.sin(an)*rr};ctx.fillStyle=`rgba(210,240,120,${0.22*life})`;ctx.beginPath();ctx.arc(q.x,q.y,38+10*Math.sin(t*1.7+i),0,TAU);ctx.fill();}
+    groundEllipse(k.x,k.y,k.r,`rgba(200,240,110,${0.5*life})`,3);}
+  for(const k of G.traps)if(!k.snapped){const f=clamp((G.t-k.t0)/TH.r.delay,0,1);ctx.fillStyle=`rgba(184,40,63,${0.12+0.25*f})`;ctx.beginPath();ctx.arc(k.x,k.y,TH.r.r*f,0,TAU);ctx.fill();groundEllipse(k.x,k.y,TH.r.r,'rgba(155,224,90,.8)',4,[14,10]);}
+    else if(!k.held)groundEllipse(k.x,k.y,TH.r.bite,'rgba(155,224,90,.22)',3,[10,12]);}
+function drawTraps(t){for(const k of G.traps){if(!k.snapped&&G.t-k.t0<TH.r.delay*0.5)continue;
+    const grow=k.snapped?1:clamp((G.t-k.t0-TH.r.delay*0.5)/(TH.r.delay*0.5),0,1),bite=clamp(1-(G.t-k.biteT)/0.3,0,1),fade=clamp((k.until-G.t)/0.4,0,1)||(k.held?1:0);
+    const base=P(k.x,k.y,0),top=P(k.x,k.y,110*grow),s=SCALE,open=k.held?0.05:k.snapped?0.5-0.4*bite:0.8;
+    ctx.save();ctx.globalAlpha=Math.max(fade,k.held?1:0);ctx.strokeStyle='#2c5a1e';ctx.lineWidth=12*s;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(base.x,base.y);ctx.quadraticCurveTo(base.x+18*s,(base.y+top.y)/2,top.x,top.y);ctx.stroke();
+    for(const side of [-1,1]){ctx.fillStyle='#3f7a2a';ctx.beginPath();ctx.ellipse(base.x+side*24*s,base.y-6*s,26*s,9*s,side*0.4,0,TAU);ctx.fill();}
+    ctx.translate(top.x,top.y);ctx.scale(s*grow,s*grow);
+    for(const side of [-1,1]){ctx.save();ctx.rotate(side*open);ctx.fillStyle='#5aa83a';ctx.strokeStyle='#244a18';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(0,side*-16,46,22,0,side>0?PI:0,side>0?TAU:PI);ctx.closePath();ctx.fill();ctx.stroke();
+      ctx.fillStyle='#b8283f';ctx.beginPath();ctx.ellipse(0,side*-8,38,10,0,0,TAU);ctx.fill();ctx.fillStyle='#f4f0dc';for(let i=-4;i<=4;i++){ctx.beginPath();ctx.moveTo(i*9-3,side*-2);ctx.lineTo(i*9+3,side*-2);ctx.lineTo(i*9,side*8);ctx.fill();}ctx.restore();}
+    if(k.held){ctx.fillStyle='#2c5a1e';ctx.beginPath();ctx.ellipse(0,0,50,30,0,0,TAU);ctx.fill();ctx.fillStyle='rgba(184,40,63,.8)';ctx.font='700 13px Oxanium, sans-serif';ctx.textAlign='center';ctx.fillText(Math.max(0,k.held.until-G.t).toFixed(1),0,5);}
+    ctx.restore();}}
+function drawThistleIcon(g,k){const gr=g.createRadialGradient(26,22,4,26,26,40);gr.addColorStop(0,'#24401c');gr.addColorStop(1,'#08110a');g.fillStyle=gr;g.fillRect(0,0,52,52);
+  g.lineCap='round';g.lineJoin='round';const Gn='#8fd14f',D='#2c5a1e',R='#b8283f',W='#f4f0dc',Y='#d8f08a';
+  if(k==='P'){g.strokeStyle=Gn;g.lineWidth=3;for(const [x,a] of [[16,-0.3],[26,0],[36,0.3]]){g.beginPath();g.moveTo(x,46);g.quadraticCurveTo(x+a*20,26,x+a*30,10);g.stroke();}g.fillStyle='#b06ad8';g.beginPath();g.arc(26,12,6,0,TAU);g.fill();}
+  if(k==='Q'){g.strokeStyle=D;g.lineWidth=6;g.beginPath();g.moveTo(6,44);g.bezierCurveTo(18,20,30,40,46,8);g.stroke();g.strokeStyle=Gn;g.lineWidth=3;g.stroke();g.fillStyle=Y;g.beginPath();g.arc(46,8,5,0,TAU);g.fill();}
+  if(k==='RMB'){g.fillStyle='rgba(170,210,70,.75)';for(const [x,y,r] of [[26,28,14],[14,32,9],[38,32,10],[20,18,9],[33,18,8]]){g.beginPath();g.arc(x,y,r,0,TAU);g.fill();}g.fillStyle=Y;for(const [x,y] of [[22,26],[30,22],[28,34]]){g.beginPath();g.arc(x,y,2,0,TAU);g.fill();}}
+  if(k==='E'){g.strokeStyle='#c8a36a';g.lineWidth=2;for(const [x,y] of [[14,36],[26,24],[38,36]]){g.fillStyle='#8a6a3a';g.beginPath();g.arc(x,y,6,0,TAU);g.fill();for(let i=0;i<8;i++){const a=i/8*TAU;g.beginPath();g.moveTo(x+Math.cos(a)*6,y+Math.sin(a)*6);g.lineTo(x+Math.cos(a)*10,y+Math.sin(a)*10);g.stroke();}}}
+  if(k==='R'){g.fillStyle=Gn;g.strokeStyle=D;g.lineWidth=2;g.beginPath();g.ellipse(26,18,18,10,0,PI,TAU);g.closePath();g.fill();g.stroke();g.beginPath();g.ellipse(26,32,18,10,0,0,PI);g.closePath();g.fill();g.stroke();g.fillStyle=R;g.fillRect(10,22,32,6);g.fillStyle=W;for(let i=0;i<5;i++){g.beginPath();g.moveTo(12+i*7,22);g.lineTo(16+i*7,22);g.lineTo(14+i*7,27);g.fill();}}
+  if(k==='DASH'){g.fillStyle='#8a6a3a';g.beginPath();g.ellipse(16,40,12,4,0,0,TAU);g.fill();g.beginPath();g.ellipse(38,40,12,4,0,0,TAU);g.fill();g.strokeStyle=Gn;g.lineWidth=3;g.setLineDash([4,4]);g.beginPath();g.moveTo(16,40);g.quadraticCurveTo(27,50,38,40);g.stroke();g.setLineDash([]);g.fillStyle=Gn;g.beginPath();g.arc(38,32,7,0,TAU);g.fill();}}
 // ================= units =================
 const zeroBonus=()=>({hp:0,hp5:0,ad:0,ap:0,armor:0,mr:0,asPct:0,crit:0,lethality:0,armorPen:0,magicPen:0,magicPenPct:0,ah:0,ms:0});
 function makeChamp(key,team,isBot){
@@ -1584,7 +1731,7 @@ function dealDamage(src,t,amt,type,o){
   if(!t.alive||amt<=0)return 0;
   if(t.kind==='plant'){if(src.kind==='champ')breakPlant(t,src);return 0;}
   if(t.untargetT>0&&!o.force)return 0;
-  if(src.kind==='champ')src.revealT=G.t+1;  // dealing damage gives away a champion hiding in brush
+  if(src.kind==='champ'&&!o.dot)src.revealT=G.t+1;  // dealing damage gives away a champion hiding in brush (poison ticks don't)
   let a=amt;
   if(src.def&&src.def.resource==='Corruption')a*=1+0.03*corrStage(src);
   if(t.def&&t.def.resource==='Corruption')a*=1+0.02*corrStage(t);
@@ -1674,11 +1821,11 @@ function releaseAttack(c){
     if(c.key==='viktor'){muzzle(c,angTo(c,tgt.x,tgt.y));SFX.play('hit',c.x,c.y,0.5);}
     if(c.key==='blackjack'){const a=angTo(c,tgt.x,tgt.y);bjMuzzle(c,a,w.side||1);SFX.play('hit',c.x,c.y,0.5);
       c.bjTap={at:G.t+BJ_TAP,tgt,ang:a,side:-(w.side||1),kind:bjLoad?'bjshotQ':'bjshot',onHit,est:c.ad*part*physMult(c,tgt)};}
-    homing(c,tgt,{speed:c.def.base.proj,kind:c.key==='viktor'?'bullet':c.key==='blackjack'?(bjLoad?'bjshotQ':'bjshot'):extra>0?'arrowBig':'arrow',onHit,est:c.ad*part*physMult(c,tgt)});
+    homing(c,tgt,{speed:c.def.base.proj,kind:c.key==='viktor'?'bullet':c.key==='blackjack'?(bjLoad?'bjshotQ':'bjshot'):c.key==='thistle'?'seed':extra>0?'arrowBig':'arrow',onHit,est:c.ad*part*physMult(c,tgt)});
   }else{
     if(c.key==='viktor'){muzzle(c,w.ang);SFX.play('hit',c.x,c.y,0.5);}
     if(c.key==='blackjack'){bjMuzzle(c,w.ang,w.side||1);SFX.play('hit',c.x,c.y,0.5);c.bjTap={at:G.t+BJ_TAP,tgt:null,ang:w.ang,side:-(w.side||1),kind:bjLoad?'bjshotQ':'bjshot',onHit};}
-    shoot(c,{ang:w.ang,speed:c.def.base.proj,range:c.range+c.r+40,radius:14,pierce:false,hitTowers:true,kind:c.key==='viktor'?'bullet':c.key==='blackjack'?(bjLoad?'bjshotQ':'bjshot'):extra>0?'arrowBig':'arrow',onHit});
+    shoot(c,{ang:w.ang,speed:c.def.base.proj,range:c.range+c.r+40,radius:14,pierce:false,hitTowers:true,kind:c.key==='viktor'?'bullet':c.key==='blackjack'?(bjLoad?'bjshotQ':'bjshot'):c.key==='thistle'?'seed':extra>0?'arrowBig':'arrow',onHit});
   }
 }
 function meleeSweep(c,ang){let best=null,bd=1e9;for(const u of attackables(c.team)){if(!targetable(u))continue;const e=edge(c,u);if(e>c.range+25)continue;if(angDiff(angTo(c,u.x,u.y),ang)>0.95)continue;const s=e+(u.kind==='champ'?-30:0);if(s<bd){bd=s;best=u;}}return best;}
@@ -1687,18 +1834,22 @@ function costOf(c,k){const r=c.ranks[k];return r?c.def.ab[k].cost[r-1]:0;}
 function canRank(c,k){if(c.points<=0)return false;if(k==='R')return c.ranks.R<(c.level>=16?3:c.level>=11?2:c.level>=6?1:0);return c.ranks[k]<Math.min(5,Math.ceil(c.level/2));}
 function rankUp(c,k){if(!canRank(c,k))return false;c.ranks[k]++;c.points--;if(c===G.player){ring(c.x,c.y,c.r,c.r+40,'#e8c06a',0.4);hudDirty=true;}return true;}
 const DASH_CD=5; // flat: ability haste does not apply
+// the abilities that move their caster, which grounding blocks (recasts included); knockbacks and pulls by others still move them
+const MOVES={cora:['E'],viktor:['E','R'],shade:['E','R'],blackjack:['E'],marty:['E','R'],mantis:['E','R']};
+const movesBlocked=(c,k)=>c.groundT>0&&!!MOVES[c.key]&&MOVES[c.key].includes(k);
 function tryDash(c,ax,ay){
-  if(!c.alive)return'dead';if(c.dashCd>0)return'dashcd';if(c.stunT>0)return'stunned';if(c.cast||(c.dash&&!bjAirCast(c)))return'busy';
+  if(!c.alive)return'dead';if(c.dashCd>0)return'dashcd';if(c.stunT>0)return'stunned';if(c.groundT>0)return'grounded';if(c.cast||(c.dash&&!bjAirCast(c)))return'busy';
   c.wind=null;if(!c.def.dash.cast(c,ax,ay))return'notarget';c.dashCd=hasAug(c,'swift')?3.5:DASH_CD;SFX.play('dash',c.x,c.y);return'ok';
 }
 function tryCast(c,k,ax,ay){
   if(!c.alive)return'dead';
   const a=c.def.ab[k],r=c.ranks[k];
   if(r<1)return'unlearned';
-  if(a.canRecast&&a.canRecast(c)){if(c.stunT>0)return'stunned';if(c.cast||(c.dash&&!bjAirCast(c)))return'busy';c.wind=null;a.recast(c,ax,ay);return'ok';}
+  if(a.canRecast&&a.canRecast(c)){if(c.stunT>0)return'stunned';if(movesBlocked(c,k))return'grounded';if(c.cast||(c.dash&&!bjAirCast(c)))return'busy';c.wind=null;a.recast(c,ax,ay);return'ok';}
   if(a.avail){const why=a.avail(c);if(why!==true)return why;}
   if(a.charges?!(c.chg[k]>0):c.cds[k]>0)return'cooldown';
   if(c.stunT>0)return'stunned';
+  if(movesBlocked(c,k)&&!(c.key==='mantis'&&k==='E'))return'grounded';  // placing Mantis's copy is fine, stepping into it is not
   if(c.cast||(c.dash&&!bjAirCast(c)))return'busy';
   const cost=a.cost[r-1];if(c.res<cost)return'resource';
   const wasStealth=c.stealthT;if(k!=='RMB'&&!(c.key==='mantis'&&k==='E'))c.stealthT=0;
@@ -1819,7 +1970,7 @@ function cancelRecall(c){if(!c.recall)return;c.recall=null;if(c===G.player)showR
 function finishRecall(c){c.recall=null;ring(c.x,c.y,10,140,TEAML[c.team],0.5);
   c.x=FOUNT[c.team].x+(c.team?-80:80);c.y=MIDY;c.px=c.x;c.py=c.y;c.vx=c.vy=0;
   ring(c.x,c.y,10,180,TEAML[c.team],0.6);spark(c.x,c.y,TEAML[c.team],14);SFX.play('level',c.x,c.y);if(c===G.player){cam.x=c.x;cam.y=c.y;}}
-function respawn(c){c.alive=true;c.recall=null;c.bleed=null;c.poison=null;computeStats(c,true);resetKitState(c);c.x=FOUNT[c.team].x+(c.team?-80:80);c.y=MIDY;c.stunT=0;c.slows=[];c.stealthT=0;c.untargetT=0;c.atkCd=0;c.wind=c.cast=c.dash=null;c.empower=null;c.retreat=false;c.spin=null;c.asBuff=null;c.dashCd=0;}
+function respawn(c){c.alive=true;c.recall=null;c.bleed=null;c.poison=null;c.groundT=0;c.swallowed=null;computeStats(c,true);resetKitState(c);c.x=FOUNT[c.team].x+(c.team?-80:80);c.y=MIDY;c.stunT=0;c.slows=[];c.stealthT=0;c.untargetT=0;c.atkCd=0;c.wind=c.cast=c.dash=null;c.empower=null;c.retreat=false;c.spin=null;c.asBuff=null;c.dashCd=0;}
 function updateChamp(c,dt){
   if(!c.alive){c.recall=null;if(isCol())return;c.respawnT-=dt;if(c.respawnT<=0)respawn(c);return;}
   for(const k of ABK)c.cds[k]=Math.max(0,c.cds[k]-dt);
@@ -1831,7 +1982,7 @@ function updateChamp(c,dt){
   if(c.spin){if(G.t>=c.spin.until)c.spin=null;else if(G.t>=c.spin.next){c.spin.next+=0.25;
     for(const u of enemiesOf(c.team)){if(u.kind==='tower'||!hittable(u)||dist(c,u)>260+u.r)continue;dealDamage(c,u,c.spin.dmg,'phys',{});}
     ring(c.x,c.y,60,260,'rgba(255,190,130,.7)',0.25);if(!c.alive)return;}}
-  c.atkCd=Math.max(0,c.atkCd-dt);c.rootT=Math.max(0,c.rootT-dt);c.hitFlash=Math.max(0,c.hitFlash-dt);
+  c.atkCd=Math.max(0,c.atkCd-dt);c.rootT=Math.max(0,c.rootT-dt);c.groundT=Math.max(0,(c.groundT||0)-dt);c.hitFlash=Math.max(0,c.hitFlash-dt);
   if(c.stealthT>0){c.stealthT-=dt;if(c.stealthT<=0){c.stealthT=0;}}
   if(c.untargetT>0)c.untargetT=Math.max(0,c.untargetT-dt);
   c.slows=c.slows.filter(s=>s.until>G.t);
@@ -1921,6 +2072,7 @@ function estBurst(c,f){
   const has=k=>{const r=c.ranks[k];if(!r||c.cds[k]>0.6)return 0;const co=A[k].cost[r-1];if(res<co)return 0;res-=co;return r;};
   if(c.key==='cora'){let r;if(c.ranks.Q&&readyAxe(c))d+=A.Q.dmg(c,c.ranks.Q)+A.Q.bleed(c,c.ranks.Q);if(r=has('RMB'))d+=A.RMB.dmg(c,r);if(r=has('E'))d+=A.E.dmg(c,r)+A.E.bleed(c,r);if(c.ranks.Q&&c.axes.Q.state!=='hand')d+=A.Q.dmg(c,c.ranks.Q)+A.Q.cleave(c,c.ranks.Q);if(r=has('R'))d+=A.R.snap(c,r,f);d=(d+c.ad*3)*(1+0.05*corrStage(c));}
   else if(c.key==='blackjack'){let r;if(r=has('Q'))d+=A.Q.dmg(c,r);if(r=has('RMB'))d+=A.RMB.dmg(c,r);if(c.ranks.R&&c.cds.R<=0.6)d+=A.R.dmg(c,c.ranks.R)*12;d+=c.ad*2+(c.loaded?bjLoaded(c):0);}
+  else if(c.key==='thistle'){let r;if(r=has('Q'))d+=A.Q.dmg(c,r)*1.25;if(r=has('E'))d+=A.E.dmg(c,r)*1.2;if(r=has('R'))d+=A.R.dmg(c,r)*1.2+A.R.bite(c,r)*2;d+=thPoison(c)*6*4+c.ad*2;}
   else if(c.key==='mantis'){let r;if(r=has('Q'))d+=A.Q.dmg(c,r)+(mtScanReady(c,f)?mtScan(c)*0.5:0);if(r=has('E'))d+=A.E.dmg(c,r);if(r=has('R'))d+=A.R.dmg(c,r)*(1.4+0.6*(1-f.hp/f.maxHp));d+=c.ad*2.5;}
   else if(c.key==='marty'){let r;if(r=has('Q'))d+=A.Q.dmg(c,r)*1.1;if(r=has('E'))d+=A.E.dmg(c,r);if(r=has('RMB'))d+=A.RMB.dmg(c,r)*0.8;if(r=has('R'))d+=A.R.dmg(c,r);d+=(c.ad+mfOnHit(c))*2.5+(c.vent?mfVentDmg(c):0);}
   else if(c.key==='viktor'){let r;const m=vikMonster(c);if(r=has('Q'))d+=m?A.Q.rip(c,r)+A.Q.ripBleed(c,r):A.Q.dmg(c,r);if(r=has('E'))d+=m?A.E.leap(c,r):A.E.dmg(c,r);if(m&&(r=has('RMB')))d+=A.RMB.molt(c,r);d+=c.ad*(m?3:2.2);}
@@ -1956,7 +2108,7 @@ function botThink(c,dt){
   const inp=c.input;inp.mx=0;inp.my=0;inp.attack=false;inp.attackTarget=null;
   if(!c.alive)return;
   botSkillPoints(c);
-  const foe=G.champs.find(u=>u!==c),A=c.def.ab,aria=c.key==='cora',shade=c.key==='shade',vik=c.key==='viktor',bj=c.key==='blackjack',mf=c.key==='marty',mt=c.key==='mantis';
+  const foe=G.champs.find(u=>u!==c),A=c.def.ab,aria=c.key==='cora',shade=c.key==='shade',vik=c.key==='viktor',bj=c.key==='blackjack',mf=c.key==='marty',mt=c.key==='mantis',th=c.key==='thistle';
   const vis=foe.alive&&targetable(foe);
   if(vis)c.mem={x:foe.x,y:foe.y,t:G.t};
   const dir=c.team===BLUE?1:-1,myT=G.towers[c.team]||NO_TOWER,foeT=G.towers[1-c.team]||NO_TOWER;
@@ -2157,6 +2309,15 @@ function botThink(c,dt){
   if(mf&&c.mq){const q=c.mq,full=G.t-q.t0>=MF.q.charge;if(!vis||d<MF.q.min+foe.r*0.6||(full&&d<MF.q.reach+foe.r*0.5)||G.t-q.t0>MF.q.charge+0.5)c.qUp=true;}
   if(mt&&c.mq){const reach=mtReach(c.mq);if(!vis||reach>=d-foe.r*0.4||(G.t-c.mq.t0>MT.q.charge&&d>MT.q.max+80))c.qUp=true;if(vis)goal={x:foe.x,y:foe.y};}
   if(vik&&vis&&mode==='retreat'&&!vikMonster(c)&&d<320&&can('RMB'))cast('RMB',foe.x,foe.y);
+  // Thistle: burrs first to slow and ground, the cloud on whoever can't dash out, Thornlash at the tip, and Mother's Maw once they are low or pinned
+  if(th&&vis&&mode!=='retreat'&&(mode!=='farm'||(d<760&&hpP>=fP-0.05&&!foeSafe))){
+    if(d<TH.e.range-60&&can('E')){const p=predict(c,foe,TH.e.speed,0.2);cast('E',p.x,p.y);}
+    if(d<TH.w.range+TH.w.r*0.5&&(foe.groundT>0||foe.stunT>0||slowed(foe)||d<320)&&can('RMB')){const p=predict(c,foe,1e9,TH.w.fly*0.6);cast('RMB',p.x,p.y);}
+    if(d<TH.q.range+foe.r-15&&can('Q')){const p=predict(c,foe,1e9,TH.q.wind);cast('Q',p.x,p.y);}
+    if(c.ranks.R&&d<TH.r.range&&(killable||fP<0.45||foe.groundT>0||foe.stunT>0)&&(!foeSafe||fP<0.2)&&can('R')){const p=predict(c,foe,1e9,TH.r.delay*0.7);cast('R',p.x,p.y);}
+    if(mode!=='farm'&&mode!=='tower'){if(myEdgeRange(foe))atk=foe;goal=d<c.range*0.55?away(220):d>c.range+foe.r?{x:foe.x,y:foe.y}:goal||{x:c.x,y:c.y};}
+    if(foeSafe&&(fP>=0.2||hpP<0.45)&&goal&&foeT.alive&&dist(goal,foeT)<foeT.range+c.r+60){goal={x:foeT.x-dir*(foeT.range+c.r+140),y:c.y};if(atk===foe&&dist(c,foeT)<foeT.range+c.r)atk=null;}}
+  if(th&&vis&&d<300&&(mode==='retreat'||hpP<fP-0.1)){if(can('E')){cast('E',foe.x,foe.y);}else if(c.dashCd<=0){const a=away(300);dashTo(a.x,a.y);}}
   // cornered with Fury to spare: Crash Down away from them and land uncaged, with the monster's extra health
   // (in the Colosseum there is nowhere to run, so crash onto them instead and fight on with the monster's health)
   if(vik&&vis&&!vikMonster(c)&&c.res>=VIK_LEAP_FURY&&c.ranks.R&&d<350&&hpP<0.45&&can('R')){const a=isCol()?{x:foe.x,y:foe.y}:away(560);cast('R',a.x,a.y);}
@@ -2250,7 +2411,7 @@ function followOrder(c){
 }
 function findHover(){let best=null,bd=1e9;for(const u of attackables(G.player.team)){if(!targetable(u))continue;const p=P(u.x,u.y),h=heightOf(u)*SCALE,rw=(u.r+12)*SCALE;
   if(Math.abs(mouse.x-p.x)>rw||mouse.y>p.y+rw*IK+4||mouse.y<p.y-h-8)continue;const s=Math.abs(mouse.x-p.x)+Math.abs(mouse.y-(p.y-h/2))*0.4-(u.kind==='champ'?40:0);if(s<bd){bd=s;best=u;}}return best;}
-const REASON={unlearned:k=>`Learn ${keyLabel(k)} first (Shift + ${classic()||k!=='RMB'?keyLabel(k):'right click'})`,cooldown:()=>'Ability on cooldown',axeaway:()=>'That axe is still out',noaxe:()=>'No grounded axe in range',noaxehand:()=>'No axe in hand',nofury:()=>`Crash Down needs ${VIK_LEAP_FURY} Fury`,uncaged:()=>'Already uncaged',norecall:()=>'There is no recall in the Colosseum',chainset:()=>'The chains are still setting',nolock:()=>'This page cannot capture the mouse here, so cursor speed stays at your system speed',recalling:()=>'Already recalling',recallx:()=>'Recall canceled',windup:()=>'Winding up',dashcd:()=>'Dash on cooldown',muted:()=>'Sound off (M)',unmuted:()=>'Sound on (M)',resource:()=>`Not enough ${G.player.def.resource.toLowerCase()}`,stunned:()=>'You are stunned',notarget:()=>'No enemy champion in range',dead:()=>''};
+const REASON={unlearned:k=>`Learn ${keyLabel(k)} first (Shift + ${classic()||k!=='RMB'?keyLabel(k):'right click'})`,cooldown:()=>'Ability on cooldown',axeaway:()=>'That axe is still out',noaxe:()=>'No grounded axe in range',noaxehand:()=>'No axe in hand',nofury:()=>`Crash Down needs ${VIK_LEAP_FURY} Fury`,uncaged:()=>'Already uncaged',norecall:()=>'There is no recall in the Colosseum',chainset:()=>'The chains are still setting',nolock:()=>'This page cannot capture the mouse here, so cursor speed stays at your system speed',recalling:()=>'Already recalling',recallx:()=>'Recall canceled',windup:()=>'Winding up',dashcd:()=>'Dash on cooldown',muted:()=>'Sound off (M)',unmuted:()=>'Sound on (M)',resource:()=>`Not enough ${G.player.def.resource.toLowerCase()}`,stunned:()=>'You are stunned',grounded:()=>'You are grounded: no dashes',notarget:()=>'No enemy champion in range',dead:()=>''};
 let toastT=0;
 function showReason(r,k){const f=REASON[r];if(!f)return;const t=f(k);if(!t)return;const el=$('toast');el.textContent=t;el.classList.add('on');toastT=1.4;}
 addEventListener('keydown',e=>{
@@ -2309,7 +2470,7 @@ function groundT(lift){const k=RS*SCALE,a=k*CS,b=-k*SN*IK,c=k*SN,d=k*CS*IK;ctx.s
 function screenT(){ctx.setTransform(RS,0,0,RS,0,0);}
 const projAng=a=>{const c=Math.cos(a),s=Math.sin(a);return Math.atan2((s*CS-c*SN)*IK,c*CS+s*SN);};
 const HEIGHT={champ:92,melee:46,caster:48,super:76,tower:250,plant:60};
-const heightOf=u=>u.kind==='champ'?(u.form==='monster'?160:u.key==='marty'?118:u.key==='mantis'?100:HEIGHT.champ):u.kind==='tower'?HEIGHT.tower:HEIGHT[u.mtype];
+const heightOf=u=>u.kind==='champ'?(u.form==='monster'?160:u.key==='marty'?118:u.key==='mantis'?100:u.key==='thistle'?TH.H:HEIGHT.champ):u.kind==='tower'?HEIGHT.tower:HEIGHT[u.mtype];
 function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
 
 // ================= ground =================
@@ -2647,6 +2808,7 @@ function champSprite(u,pose){
   if(u.key==='blackjack'&&BJ_READY)return bjFrame(u);
   if(u.key==='marty'&&MF_READY)return martyFrame(u);
   if(u.key==='mantis'&&MT_READY)return mantisFrame(u);
+  if(u.key==='thistle')return thistleFrame(u);
   pose=pose||champPose(u);const hi=u.key==='shade',N=hi&&pose.anim==='walk'?10:ANIM_N[pose.anim]||1,fr=Math.min(N-1,Math.floor(pose.ph*N)),d=pose.dir!==undefined?pose.dir:dirIdx(u.facing,DIRS),sd=pose.side||1;
   const key=`${u.key}|${pose.anim}|${sd}|${d}|${fr}`;let s=SPR.get(key);
   if(!s){const rf=u.key==='cora'?rigAria:rigShade;s=hi?bake(rf(pose.anim,(fr+0.5)/N,sd),d*TAU/DIRS,SCALE*DPR,CHAMP_BOX,'#0a0809',true):bake(rf(pose.anim,(fr+0.5)/N,sd),d*TAU/DIRS,ART_K,CHAMP_BOX);SPR.set(key,s);}
@@ -2856,9 +3018,12 @@ function drawStatus(t){
   screenT();
   for(const u of G.champs){if(!champVisible(u)||u.stunT<=0)continue;ctx.fillStyle='#ffe98a';
     for(let i=0;i<3;i++){const a=t*6+i*TAU/3,s=P(u.x,u.y,112);ctx.fillRect(s.x+Math.cos(a)*18*SCALE-2,s.y+Math.sin(a)*6*SCALE-2,4,4);}}
+  // grounded: roots curl up around the feet
+  for(const u of G.champs){if(!champVisible(u)||!(u.groundT>0))continue;const q=P(u.x,u.y);ctx.strokeStyle='#c8a36a';ctx.lineWidth=2.5*SCALE;
+    for(let i=0;i<5;i++){const a=i/5*TAU+t*0.6,rx=(u.r+8)*SCALE,x0=q.x+Math.cos(a)*rx,y0=q.y+Math.sin(a)*rx*IK;ctx.beginPath();ctx.moveTo(x0,y0);ctx.quadraticCurveTo(x0+Math.cos(a)*6*SCALE,y0-14*SCALE,x0-Math.cos(a)*4*SCALE,y0-22*SCALE);ctx.stroke();}}
 }
 
-const resCol=c=>c.def.resource==='Scan'?'#7ff6ff':c.def.resource==='Pressure'?(c.vent?'#eaf6ff':'#5fc8ff'):c.def.resource==='Luck'?'#e8c06a':c.form==='monster'?'#ff4d2e':c.def.resource==='Corruption'?'#a855f7':c.def.resource==='Energy'?'#f0cf48':c.def.resource==='Fury'?'#ff8a4c':'#4a90ff';
+const resCol=c=>c.def.resource==='Sap'?'#7fcf4a':c.def.resource==='Scan'?'#7ff6ff':c.def.resource==='Pressure'?(c.vent?'#eaf6ff':'#5fc8ff'):c.def.resource==='Luck'?'#e8c06a':c.form==='monster'?'#ff4d2e':c.def.resource==='Corruption'?'#a855f7':c.def.resource==='Energy'?'#f0cf48':c.def.resource==='Fury'?'#ff8a4c':'#4a90ff';
 function bar(x,y,w,h,p,col,bg){ctx.fillStyle=bg||'rgba(0,0,0,.75)';ctx.fillRect(x-1,y-1,w+2,h+2);ctx.fillStyle=col;ctx.fillRect(x,y,w*clamp(p,0,1),h);}
 function crossIcon(x,y){ctx.save();ctx.translate(x,y);ctx.lineCap='round';ctx.strokeStyle='rgba(0,0,0,.7)';ctx.lineWidth=6;ctx.beginPath();ctx.moveTo(-8,-8);ctx.lineTo(8,8);ctx.moveTo(8,-8);ctx.lineTo(-8,8);ctx.stroke();ctx.strokeStyle='#ff4d61';ctx.lineWidth=3;ctx.stroke();ctx.restore();}
 function quarryIcon(x,y){ctx.save();ctx.translate(x,y);ctx.rotate(G.t*2);ctx.strokeStyle='#ff4d61';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,8,0,TAU);ctx.moveTo(-12,0);ctx.lineTo(-4,0);ctx.moveTo(12,0);ctx.lineTo(4,0);ctx.moveTo(0,-12);ctx.lineTo(0,-4);ctx.moveTo(0,12);ctx.lineTo(0,4);ctx.stroke();ctx.restore();}
@@ -2916,6 +3081,8 @@ function drawProj(p,t){
       if(I){const sc=0.62,fi=Math.floor(t*14)%4;ctx.drawImage(BJ_SHOT.gold||I,fi*BJ_SHOT.cw,0,BJ_SHOT.cw,BJ_SHOT.ch,-BJ_SHOT.cw*sc,-BJ_SHOT.ch*sc/2,BJ_SHOT.cw*sc,BJ_SHOT.ch*sc);}ctx.globalCompositeOperation='source-over';break;}
     case'bjshot':case'bjshotQ':case'bjgold':{const I=p.kind==='bjgold'?BJ_SHOT.gold:BJ_SHOT.img,sc=p.kind==='bjshot'?0.34:0.44;if(I){const fi=Math.floor(t*14+(p.age||0)*20)%4;ctx.globalCompositeOperation='lighter';ctx.drawImage(I,fi*BJ_SHOT.cw,0,BJ_SHOT.cw,BJ_SHOT.ch,-BJ_SHOT.cw*sc,-BJ_SHOT.ch*sc/2,BJ_SHOT.cw*sc,BJ_SHOT.ch*sc);ctx.globalCompositeOperation='source-over';}break;}
     case'bullet':{ctx.globalCompositeOperation='lighter';ctx.strokeStyle='rgba(255,210,120,.55)';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(-34,0);ctx.lineTo(4,0);ctx.stroke();ctx.strokeStyle='#fff3c8';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-18,0);ctx.lineTo(6,0);ctx.stroke();ctx.globalCompositeOperation='source-over';break;}
+    case'seed':ctx.fillStyle='#2c5a1e';ctx.beginPath();ctx.ellipse(0,0,9,6,0,0,TAU);ctx.fill();ctx.fillStyle='#8fd14f';ctx.beginPath();ctx.ellipse(1,-1,6,3.5,0,0,TAU);ctx.fill();ctx.strokeStyle='rgba(143,209,79,.45)';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-26,0);ctx.lineTo(-9,0);ctx.stroke();break;
+    case'burr':ctx.rotate(t*18);ctx.fillStyle='#8a6a3a';ctx.beginPath();ctx.arc(0,0,8,0,TAU);ctx.fill();ctx.strokeStyle='#c8a36a';ctx.lineWidth=2;for(let i=0;i<8;i++){const a=i/8*TAU;ctx.beginPath();ctx.moveTo(Math.cos(a)*7,Math.sin(a)*7);ctx.lineTo(Math.cos(a)*13,Math.sin(a)*13);ctx.stroke();}break;
     case'tether':{ctx.fillStyle='#3a1a14';ctx.beginPath();ctx.moveTo(14,0);ctx.lineTo(-4,-9);ctx.lineTo(0,0);ctx.lineTo(-4,9);ctx.closePath();ctx.fill();ctx.strokeStyle='#d9574a';ctx.lineWidth=2;ctx.stroke();break;}
     case'arrowBig':ctx.strokeStyle='#9fe8ff';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(-28,0);ctx.lineTo(10,0);ctx.stroke();ctx.fillStyle='#e8fbff';ctx.beginPath();ctx.moveTo(16,0);ctx.lineTo(6,-6);ctx.lineTo(6,6);ctx.fill();break;
     case'arrowQ':{const gr=ctx.createLinearGradient(-90,0,20,0);gr.addColorStop(0,'rgba(120,220,255,0)');gr.addColorStop(1,'rgba(160,235,255,.9)');ctx.fillStyle=gr;ctx.fillRect(-90,-7,110,14);ctx.strokeStyle='#ffffff';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-30,0);ctx.lineTo(18,0);ctx.stroke();ctx.fillStyle='#e8fbff';ctx.beginPath();ctx.moveTo(26,0);ctx.lineTo(14,-8);ctx.lineTo(14,8);ctx.fill();break;}
@@ -3097,6 +3264,7 @@ function render(dt){
         ctx.moveTo(c.x-sa*h,c.y+ca*h);ctx.lineTo(c.x+ca*L-sa*h,c.y+sa*L+ca*h);ctx.lineTo(c.x+ca*L+sa*h,c.y+sa*L-ca*h);ctx.lineTo(c.x+sa*h,c.y-ca*h);ctx.closePath();ctx.fill();ctx.stroke();}
       const bq=vikBounty(c);if(bq&&targetable(bq))groundEllipse(bq.x,bq.y,bq.r+24+Math.sin(G.t*7)*4,'rgba(255,150,70,.85)',5,[10,8]);}
     for(const k of G.inks)drawInk(k,t);
+    drawCloudsGround(t);
     for(const c of G.champs){if(c.key!=='mantis'||!c.alive)continue;
       if(c.mq&&(c.team===p.team||targetable(c))){const q=c.mq,a=q.ang,ca=Math.cos(a),sa=Math.sin(a),h=MT.q.half,L=mtReach(q),M=MT.q.max;
         const quad=l=>{ctx.beginPath();ctx.moveTo(c.x-sa*h,c.y+ca*h);ctx.lineTo(c.x+ca*l-sa*h,c.y+sa*l+ca*h);ctx.lineTo(c.x+ca*l+sa*h,c.y+sa*l-ca*h);ctx.lineTo(c.x+sa*h,c.y-ca*h);ctx.closePath();};
@@ -3132,9 +3300,11 @@ function render(dt){
   for(const u of list){if(u.kind==='tower')drawTower(u,t);else if(u.kind==='minion')drawMinion(u,t);else if(u.kind==='ruin')drawRuin(u);else if(u.kind==='portal')drawPortal(u,t);else if(u.kind==='gate')drawGate(u,t);else if(u.kind==='tuft')drawTuft(u);else if(u.kind==='plant')drawPlant(u,t);else if(u.kind==='mtcopy')drawMantisCopy(u.c,t);else drawChamp(u,t);}
   // effects in their own pixel buffer on top
   ctx=fctx;RS=DPR/PXd;ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,fbuf.width,fbuf.height);ctx.imageSmoothingEnabled=true;
-  drawSmears();drawAxeUpright(t);screenT();for(const pr of G.projs)drawProj(pr,t);drawHooks();drawArenaFence();if(isCol()){drawBeads(t);drawPortalMotes(t);drawEventsFx(t);drawStormFx();}drawFx();drawStatus(t);
+  drawSmears();drawAxeUpright(t);screenT();for(const pr of G.projs)drawProj(pr,t);drawThLash();drawTraps(t);drawHooks();drawArenaFence();if(isCol()){drawBeads(t);drawPortalMotes(t);drawEventsFx(t);drawStormFx();}drawFx();drawStatus(t);
   ctx=mctx;RS=DPR;mctx.setTransform(1,0,0,1,0,0);mctx.imageSmoothingEnabled=false;mctx.drawImage(fbuf,0,0,fbuf.width*PXd,fbuf.height*PXd);
   const p=G.player;
+  // standing in an enemy's pollen cloud: the world beyond it goes murky
+  if(fogged(p)){screenT();ctx.fillStyle='rgba(70,95,30,.38)';ctx.fillRect(0,0,VW,VH);}
   drawBars();drawTexts();
   screenT();
   if(!p.alive){ctx.fillStyle='rgba(20,10,12,.45)';ctx.fillRect(0,0,VW,VH);}
@@ -3255,6 +3425,7 @@ function drawIcon(g,key,k,form){
   if(key==='blackjack'){drawBJIcon(g,k);return;}
   if(key==='marty'){if(!drawAtlasIcon(g,'marty',k))drawMartyIcon(g,k);return;}
   if(key==='mantis'){drawMantisIcon(g,k);return;}
+  if(key==='thistle'){drawThistleIcon(g,k);return;}
   const gr=g.createRadialGradient(26,22,4,26,26,40);
   if(key==='cora'){gr.addColorStop(0,'#5a3a2a');gr.addColorStop(1,'#140c0a');}else{gr.addColorStop(0,'#5a1f2b');gr.addColorStop(1,'#14080b');}
   g.fillStyle=gr;g.fillRect(0,0,52,52);g.lineCap='round';g.lineJoin='round';
@@ -3299,6 +3470,8 @@ function drawPortrait(cvs,key,team){const g=cvs.getContext('2d');const S=cvs.wid
   const gr=g.createRadialGradient(S/2,S/2,4,S/2,S/2,S/2);gr.addColorStop(0,key==='cora'?'#5a2a1c':'#3a1820');gr.addColorStop(1,'#0b1215');g.fillStyle=gr;g.fillRect(0,0,S,S);
   if(key==='viktor'&&VIK_READY){const S2=VIK_SHEETS.human,f=S*0.95/S2.h;g.imageSmoothingEnabled=true;g.imageSmoothingQuality='high';
     g.drawImage(S2.img,0,0,S2.cw,S2.ch,S/2-S2.ax*f,S*0.99-S2.ay*f,S2.cw*f,S2.ch*f);return;}
+  if(key==='thistle'){const S2=TH_SHEET,f=S*0.8/S2.h;g.imageSmoothingEnabled=true;g.imageSmoothingQuality='high';
+    g.drawImage(S2.img,0,0,S2.cw,S2.ch,S/2-S2.ax*f,S*0.97-S2.ay*f,S2.cw*f,S2.ch*f);return;}
   if(key==='mantis'&&MT_READY){const S2=MT_SHEETS.move,f=S*0.86/S2.h;g.imageSmoothingEnabled=true;g.imageSmoothingQuality='high';
     g.drawImage(S2.img,0,0,S2.cw,S2.ch,S/2-S2.ax*f,S*0.97-S2.ay*f,S2.cw*f,S2.ch*f);return;}
   if(key==='marty'&&MF_READY){const S2=MF_IDLE.img?MF_IDLE:MF_SHEET,f=S*0.9/S2.h;g.imageSmoothingEnabled=true;g.imageSmoothingQuality='high';
@@ -3328,7 +3501,7 @@ function buildHud(){
     d.addEventListener('mouseenter',()=>showTip('DASH',d));d.addEventListener('mouseleave',()=>{$('tip').hidden=true;tipK=null;});
     el.appendChild(d);slotEls.DASH={d,cd:d.querySelector('.cd'),cdt:d.querySelector('.cdt'),last:''};}
   drawPortrait($('portC'),p.key,p.team);
-  $('resM').classList.toggle('energy',p.def.resource==='Energy');$('resM').classList.toggle('scan',p.def.resource==='Scan');$('resM').classList.toggle('fury',p.def.resource==='Fury');$('resM').classList.toggle('corrupt',p.def.resource==='Corruption');$('resM').classList.toggle('luck',p.def.resource==='Luck');
+  $('resM').classList.toggle('energy',p.def.resource==='Energy');$('resM').classList.toggle('scan',p.def.resource==='Scan');$('resM').classList.toggle('fury',p.def.resource==='Fury');$('resM').classList.toggle('corrupt',p.def.resource==='Corruption');$('resM').classList.toggle('sap',p.def.resource==='Sap');$('resM').classList.toggle('luck',p.def.resource==='Luck');
   $('goal').textContent=G.mode==='col'?`Best of 3 · Round ${G.col.round}`:`First to ${G.killsToWin} kill${G.killsToWin>1?'s':''} or the tower`;
   $('feed').innerHTML='';
   applySettings();
@@ -3537,7 +3710,7 @@ function updateVision(){
   for(const u of G.champs)u.bush=u.alive?bushAt(u.x,u.y):-1;
   for(const u of G.champs){let h=u.alive&&u.bush>=0&&!(u.revealT>G.t);
     if(h)for(const e of G.champs)if(e.team!==u.team&&e.alive&&(e.bush===u.bush||(dist(e,u)<170&&!hasAug(u,'shroud'))||shadeQuarry(e)===u||(vikBounty(e)===u&&e.bounty.reveal>G.t)))h=false;
-    u.hidden=h;
+    u.hidden=h||fogHides(u);
     if(u.alive&&u.bush>=0&&u.prevBush<0&&hasAug(u,'shroud'))u.msBuff={until:G.t+1.5,pct:0.3};u.prevBush=u.bush;}}
 const STORM_SRC={kind:'storm',team:-1,name:'The storm',alive:true};
 const EVENT_SRC={kind:'env',team:-1,name:'The arena',alive:true};
@@ -3626,14 +3799,14 @@ function banner(title,sub,dur){const b=$('banner');b.querySelector('b').textCont
 function startRound(){const C=G.col;C.round++;C.state='count';C.stateT=4;C.lastN=null;C.t=0;C.storm=null;C.stormWarned=false;C.stormTick=0;C.beads=[];
   C.cp={openAt:COL.CP_OPEN,prog:0,team:null,contested:false};C.event=null;C.meteors=[];C.lava=[];C.quake=null;C.lavaTick=0;C.portalReady=[COL.PORTAL_OPEN,COL.PORTAL_OPEN];
   for(const p of C.plants){p.alive=false;p.ripeAt=COL.PLANT_FIRST;}
-  G.projs=[];G.rifts=[];G.trails=[];G.inks=[];G.arena=null;G.fx=[];G.texts=[];
+  G.projs=[];G.rifts=[];G.trails=[];G.inks=[];G.clouds=[];G.traps=[];G.arena=null;G.fx=[];G.texts=[];
   const L=COL.LEVELS[Math.min(C.round,3)-1];
   for(const c of G.champs){const a=COL.spawn[c.team]*PI/180;
     c.alive=true;resetKitState(c);colLevel(c,L);c.hp=c.maxHp;resetKitState(c);if(c.def.resource==='Energy')c.res=c.maxRes;
     c.x=COL.cx+Math.cos(a)*720;c.y=COL.cy+Math.sin(a)*720;c.facing=a+PI;c.input.ax=COL.cx;c.input.ay=COL.cy;
     c.cds={Q:0,E:0,RMB:0,R:0};c.dashCd=0;c.stunT=0;c.slows=[];c.stealthT=0;c.untargetT=0;c.atkCd=0;c.rootT=0;c.wind=c.cast=c.dash=null;c.empower=null;c.spin=null;c.asBuff=null;c.msBuff=null;
     c.windUsed=false;c.prevBush=-1;c.augList=c.augList||[];
-    c.bleed=null;c.poison=null;c.recall=null;c.order=null;c.crosscut=null;c.shadeMark=null;c.eRecast=null;c.quarry=null;c.execBy=null;c.revealT=0;c.hidden=false;c.retreat=false;c.mem=null;c.lastChampHit=null;c.cleaveReady=null;c.vx=c.vy=0;c.atk=null;c.castAnim=null;}
+    c.bleed=null;c.poison=null;c.groundT=0;c.swallowed=null;c.recall=null;c.order=null;c.crosscut=null;c.shadeMark=null;c.eRecast=null;c.quarry=null;c.execBy=null;c.revealT=0;c.hidden=false;c.retreat=false;c.mem=null;c.lastChampHit=null;c.cleaveReady=null;c.vx=c.vy=0;c.atk=null;c.castAnim=null;}
   cam.x=G.player.x;cam.y=G.player.y;buildHud();hudDirty=true;
   if(G.champs[0].augList.length<C.round){
     for(const c of G.champs){if(botCtl(c)){const bo=offerAugs(c);addAug(c,bo[(srand()*bo.length)|0].id);}else{c.augOffer=offerAugs(c);c.augPick=null;c.prepReady=false;}}
@@ -3991,7 +4164,7 @@ let pick='cora',optKills=3,optXp=1,optMap='lane',optFoe='random';
 function newGame(){
   const M=NET.live?NET.match:null;
   UID=1;SIM_RNG=mulberry(M?M.seed:(Math.random()*4294967296)>>>0);
-  G={mode:M?M.map:optMap,t:0,paused:false,over:null,overT:0,overShown:false,champs:[],minions:[],towers:[],projs:[],rifts:[],trails:[],inks:[],fx:[],texts:[],feedQ:[],spawnQ:[],score:[0,0],waveN:0,nextWave:5,
+  G={mode:M?M.map:optMap,t:0,paused:false,over:null,overT:0,overShown:false,champs:[],minions:[],towers:[],projs:[],rifts:[],trails:[],inks:[],clouds:[],traps:[],fx:[],texts:[],feedQ:[],spawnQ:[],score:[0,0],waveN:0,nextWave:5,
      relics:RELIC_POS.map(p=>({x:p.x,y:p.y,r:30,active:false,at:45})),killsToWin:M?M.k:optKills,xpRate:M?M.x:optXp,hover:null,tickN:0};
   const others=Object.keys(CH).filter(k=>k!==pick),ks=M?M.ch:[pick,optFoe==='random'?others[(Math.random()*others.length)|0]:optFoe];
   // online both champions are people: the host plays blue, the guest red
@@ -4039,7 +4212,7 @@ function tick(dt){
   for(const c of G.champs){c.px=c.x;c.py=c.y;updateChamp(c,dt);}
   for(const m of G.minions)updateMinion(m,dt);
   for(const t of G.towers)updateTower(t,dt);
-  updateProjs(dt);updateRifts(dt);updateTrails(dt);updateInks(dt);updateBleeds();updatePoisons();
+  updateProjs(dt);updateRifts(dt);updateTrails(dt);updateInks(dt);updateBleeds();updatePoisons();updateClouds();updateTraps();
   separate();updateArena();if(isCol()){for(const c of G.champs)colClamp(c,c.r);updateVision();colResolve();}else updateVision();
   for(const c of G.champs){const vx=(c.x-c.px)/dt,vy=(c.y-c.py)/dt;c.vx+=(clamp(vx,-600,600)-c.vx)*0.3;c.vy+=(clamp(vy,-600,600)-c.vy)*0.3;c.walkD=(c.walkD||0)+hyp(c.x-c.px,c.y-c.py);}
   G.minions=G.minions.filter(m=>m.alive||m.deadT<0.5);
@@ -4088,7 +4261,7 @@ function frame(now){
 
 // ================= menu =================
 // Screens: home, play (mode, map, champion), the champions collection, one champion in depth, how to play, settings.
-const ROSTER=['cora','shade','viktor','blackjack','marty','mantis'];
+const ROSTER=['cora','shade','viktor','blackjack','marty','mantis','thistle'];
 const MENU={scr:'home',mode:'bot',detail:null,ab:'Q',rank:null,level:1,walk:true,face:null,allNews:false};
 // what the champion pages say about each champion: difficulty 1-3, ratings out of 10, a playstyle and tips
 const CHAMP_INFO={
@@ -4115,7 +4288,11 @@ const CHAMP_INFO={
   marty:{diff:1,tags:['Health scaling','Shields','Knock-ups'],rate:{Damage:6,Toughness:10,Mobility:5,Control:8,Range:3},
     style:'Marty Fish is a squid in a salvage mech: tanky, slow to start and impossible to shake. Everything he hits with scales with his maximum health, and every hit he trades builds Pressure for a shielded haymaker.',
     tips:['Health is damage: every ability, and every basic attack, adds a share of your maximum health.','Tap Hydraulic Haymaker for a quick punch up close. Hold it until the lane turns gold and let go on someone at full reach to grab them and haul them in.','Ink Tank is your fortress: stand in it to take less damage while they are slowed.','Ballast Charge turns toward your cursor. Steer it into them to bump them back.','Deep-Sea Drop starts fights from out of sight, or catches someone running away.'],
-    combo:'Ballast Charge → Ink Tank → Haymaker at the fist → vent auto when Pressure is full → Deep-Sea Drop on the runner'}};
+    combo:'Ballast Charge → Ink Tank → Haymaker at the fist → vent auto when Pressure is full → Deep-Sea Drop on the runner'},
+  thistle:{diff:2,tags:['Poison','Zone control','Grounding'],rate:{Damage:7,Toughness:3,Mobility:4,Control:9,Range:8},
+    style:'Thistle rides Mother, a carnivorous plant with an appetite. She wins by owning ground: a poison cloud the enemy cannot see out of, burrs that stop them dashing away, and a flytrap that swallows them whole. Every ability poisons, and the stacks keep ticking after they escape. (Placeholder art.)',
+    tips:['Poison stacks: the longer they stay in your reach, the harder every tick hits.','Burr Volley grounds: a grounded enemy cannot use their Space dash or any dash in their kit. Throw it before the cloud so they cannot walk out of it fast.','Overgrowth makes slowed or grounded enemies take more from your abilities. Land the burrs first.','Thornlash hits hardest at the tip. Keep your distance and catch them with the end of the vine.','Mother\'s Maw spits the enemy back toward you. Stand where you want them to land, ideally in your cloud.'],
+    combo:'Burr Volley → Pollen Cloud on the grounded target → Thornlash at the tip → Mother\'s Maw to finish'}};
 // what changed, newest first
 const NEWS=[
   {v:'Build 42',d:'Oct 30',h:'Aimed attacks everywhere',i:['Basic attacks turn with your cursor while they wind up and land where it points, so you can keep moving and still hit.','Point-and-click: clicking an enemy in range swings at them (hold to keep swinging); out of range you walk to the spot instead of chasing. Attack-move hits whatever comes into range without chasing.','Marty\'s basic attack reach is shorter (165 to 125).','Black Jack\'s heavy round now always fires toward the cursor.']},
@@ -4128,7 +4305,7 @@ const NEWS=[
   {v:'Build 35',d:'Oct 29',h:'Marty Fish arrives, Black Jack reworked',i:['New champion: Marty Fish, the Pocket Leviathan, a juggernaut with a steerable charge and a drop from the sky.','Black Jack: double-tap basic attacks, a four-plus-one Double or Nothing, a Lucian-style Royal Flush, casting mid-dash, a coin that roots, and Jetstep fire that slows.','Dash afterimages are now a faint light blue.']},
   {v:'Build 34',d:'Oct 29',h:'Smarter walking, last hits',i:['Champions and minions walk around the bridge\'s pillars instead of sticking to them.','A red marker shows when your next attack would kill a minion; last hits give double experience.']}];
 
-const READY_OF={cora:()=>CORA_READY,shade:()=>SHEETS_READY,viktor:()=>VIK_READY,blackjack:()=>BJ_READY,marty:()=>MF_READY,mantis:()=>MT_READY};
+const READY_OF={cora:()=>CORA_READY,shade:()=>SHEETS_READY,viktor:()=>VIK_READY,blackjack:()=>BJ_READY,marty:()=>MF_READY,mantis:()=>MT_READY,thistle:()=>true};
 // a champion drawn outside a match: the real sprite frames, from a stand-in unit
 function menuUnit(key){const d=CH[key];return{kind:'champ',key,def:d,id:3,team:BLUE,r:d.r,alive:true,res:0,maxRes:100,form:'human',hp:1,maxHp:1,facing:PI/2,vx:0,vy:0,walkD:0,slows:[],input:{}};}
 const worldAng=sa=>{const u=Math.cos(sa),v=Math.sin(sa)/IK;return Math.atan2(u*SN+v*CS,u*CS-v*SN);};
@@ -4175,7 +4352,7 @@ function drawHero(dt,t){const cv=$('heroCv'),g=cv.getContext('2d');if(!HERO.us)H
   g.clearRect(0,0,cv.width,cv.height);const n=ROSTER.length,y=cv.height*0.84,k=cv.height/265;
   HERO.us.forEach((u,i)=>{const x=cv.width*(i+0.5)/n;let sa=PI/2+(i-(n-1)/2)*0.28;
     if(HERO.mx){sa=Math.atan2((HERO.mx.y*cv.height-(y-50*k))/IK,HERO.mx.x*cv.width-x);}
-    animUnit(u,dt,sa,false);groundGlow(g,x,y,60*k,['rgba(255,160,90,.35)','rgba(180,140,255,.35)','rgba(255,110,70,.35)','rgba(255,211,107,.35)','rgba(110,210,255,.35)','rgba(160,255,80,.35)'][i]);
+    animUnit(u,dt,sa,false);groundGlow(g,x,y,60*k,['rgba(255,160,90,.35)','rgba(180,140,255,.35)','rgba(255,110,70,.35)','rgba(255,211,107,.35)','rgba(110,210,255,.35)','rgba(160,255,80,.35)','rgba(143,209,79,.35)'][i]);
     drawChampAt(g,u,x,y,k,t+i*0.37);
     g.fillStyle='#cfd9da';g.font=`700 ${Math.round(13*k)}px Oxanium, sans-serif`;g.textAlign='center';g.fillText(CH[u.key].name.toUpperCase(),x,y+20*k);});}
 
@@ -4211,7 +4388,7 @@ function renderStats(){const key=MENU.detail,I=CHAMP_INFO[key],c=demoChamp(key,M
   $('cdStats').innerHTML=Object.entries(I.rate).map(([n,v])=>`<div class="sbar"><span>${n}</span><div class="tr"><i style="width:${v*10}%"></i></div></div>`).join('')+
     `<div class="base" style="grid-column:1/-1">${[['Health',n0(c.maxHp)],['Attack damage',n0(c.ad)],['Attack speed',c.as.toFixed(2)],['Armor',n0(c.armor)],['Magic resist',n0(c.mr)],['Move speed',n0(c.baseMs)],['Attack range',n0(c.range)],[c.def.resource,c.def.resource==='Luck'?'1 shot':n0(c.maxRes)]].map(([a,b])=>`<div><b>${b}</b><span>${a}</span></div>`).join('')}</div>`;}
 // every numeric value an ability defines, by rank, at the chosen level
-const NUM_NAMES={dmg:'Damage',bonus:'Bonus damage',bleed:'Bleed',poison:'Poison per stack',cleave:'Cleave',burn:'Burn every 0.5s',rip:'Gut Ripper',ripBleed:'Gut Ripper bleed',leap:'Landing damage',molt:'Molt',blast:'Kickback, all pellets',cut:'Each cut',snap:'Snap'};
+const NUM_NAMES={dmg:'Damage',bonus:'Bonus damage',bleed:'Bleed',poison:'Poison per stack',bite:'Flytrap bite',cleave:'Cleave',burn:'Burn every 0.5s',rip:'Gut Ripper',ripBleed:'Gut Ripper bleed',leap:'Landing damage',molt:'Molt',blast:'Kickback, all pellets',cut:'Each cut',snap:'Snap'};
 function selAbility(k){const key=MENU.detail,d=CH[key];MENU.ab=k;const max=abMax(d,k);if(!MENU.rank||MENU.rank>max)MENU.rank=max;
   for(const b of $('cdAbTabs').children)b.setAttribute('aria-selected',String(b.dataset.ab===k));
   const r=Math.min(MENU.rank,max),ranks={Q:0,E:0,RMB:0,R:0};if(k in ranks)ranks[k]=r;const c=demoChamp(key,MENU.level,ranks),a=d.ab[k];
@@ -4262,7 +4439,7 @@ function pvSave(){return{G,cx:cam.x,cy:cam.y,camFree,SHX,SHY,UID,RNG:SIM_RNG,mct
 function pvLoad(s){G=s.G;cam.x=s.cx;cam.y=s.cy;camFree=s.camFree;SHX=s.SHX;SHY=s.SHY;UID=s.UID;SIM_RNG=s.RNG;mctx=s.mctx;ctx=s.ctx;RS=s.RS;SET.lead=s.lead;}
 function pvStart(key,k){PV.key=key;PV.k=k;PV.on=true;PV.acc=0;const s=pvSave();
   try{UID=1;SIM_RNG=mulberry(7+PV.n++);
-    G={mode:'lane',preview:true,t:0,paused:false,over:null,overT:0,overShown:false,champs:[],minions:[],towers:[],projs:[],rifts:[],trails:[],inks:[],fx:[],texts:[],feedQ:[],spawnQ:[],score:[0,0],waveN:0,nextWave:Infinity,relics:[],killsToWin:99,xpRate:0,hover:null,tickN:0};
+    G={mode:'lane',preview:true,t:0,paused:false,over:null,overT:0,overShown:false,champs:[],minions:[],towers:[],projs:[],rifts:[],trails:[],inks:[],clouds:[],traps:[],fx:[],texts:[],feedQ:[],spawnQ:[],score:[0,0],waveN:0,nextWave:Infinity,relics:[],killsToWin:99,xpRate:0,hover:null,tickN:0};
     const S=pvScenario(key,k),me=makeChamp(key,BLUE,true),foe=makeChamp(key==='cora'?'viktor':'cora',RED,true);
     for(const c of [me,foe]){c.level=9;computeStats(c,true);c.hp=c.maxHp;}
     me.ranks={Q:4,E:4,RMB:3,R:2};for(const kk of ABK){const a=me.def.ab[kk];if(a.charges)me.chg[kk]=a.charges;}me.points=0;
