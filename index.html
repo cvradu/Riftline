@@ -1054,7 +1054,7 @@ function updateBJ(c,dt){if(c.key!=='blackjack')return;
   c.res=c.loaded?1:0;c.range=c.def.base.range+(c.longShot>G.t?BJ_LONG:0);
   const q=c.bjq;
   if(q&&G.t>=q.next){if(c.stunT>0||(c.dash&&c.dash.kind==='knock')||!c.alive)c.bjq=null;
-    else{const big=q.n>=BJ_Q.quick;bjQShot(c,big?angTo(c,c.input.ax,c.input.ay):q.ang+srnd(-0.03,0.03),q.r,q.n);q.n++;
+    else{const big=q.n>=BJ_Q.quick;bjQShot(c,big?(a=>angTo(c,a.x,a.y))(aimPt(c)):q.ang+srnd(-0.03,0.03),q.r,q.n);q.n++;
       if(big)c.bjq=null;else q.next=G.t+(q.n>=BJ_Q.quick?BJ_Q.pause:BJ_Q.gap);}}
   // the second barrel of a basic attack
   const tp=c.bjTap;
@@ -1130,7 +1130,7 @@ function drawBJIcon(g,k){const gr=g.createRadialGradient(26,22,4,26,26,40);gr.ad
 // ================= Marty Fish, the Pocket Leviathan: a tiny squid piloting a salvage mech with hydraulic fists =================
 CH.marty={key:'marty',name:'Marty',fullName:'Marty Fish',role:'Juggernaut',reach:'Melee',resource:'Pressure',r:36,ranged:false,
   blurb:'A tiny squid in a water-filled cockpit, piloting a massive salvage mech. Everything he hits with scales with his health: punch enemies at the end of a piston, smother them in ink, ram them with a steerable charge, and drop out of the sky on top of them; every hit he takes or lands builds the Pressure for a shielded haymaker.',
-  base:{hp:780,hpG:122,hp5:9,hp5G:0.9,res:100,resG:0,rg5:0,rg5G:0,ad:58,adG:3,as:0.66,asG:2.4,armor:35,armorG:4.5,mr:32,mrG:2.05,ms:335,range:165,windup:0.3,proj:0},
+  base:{hp:780,hpG:122,hp5:9,hp5G:0.9,res:100,resG:0,rg5:0,rg5G:0,ad:58,adG:3,as:0.66,asG:2.4,armor:35,armorG:4.5,mr:32,mrG:2.05,ms:335,range:125,windup:0.3,proj:0},
   castKind:{Q:'swing',E:'swing',RMB:'swing',R:'leap'},
   dash:{name:'Bilge Burst',desc:'Blast ballast water out of the vents and lurch up to 200 units toward the cursor.',
     cast(c,ax,ay){if(c.drop)return false;const ang=angTo(c,ax,ay),len=clamp(hyp(ax-c.x,ay-c.y),100,200);dash(c,ang,len,1300,{kind:'vent'});mfBubbles(c,8);G.fx.push({k:'mfspr',set:'vent',strip:0,fi:mfRow(c),x:c.x-Math.cos(ang)*40,y:c.y-Math.sin(ang)*40,z:50,w:90,t:0,dur:0.35});return true;}},
@@ -1625,6 +1625,8 @@ function startAttack(c,target){
   c.atk={start:G.t,W:wu,side:c.atkSide,cross:!!(target&&target.crosscut&&target.crosscut.src===c&&target.crosscut.until>G.t)};
   c.wind={t:wu,total:wu,target,ang,ambush,side:c.atkSide};
 }
+// where a champion is aiming right now: the player's cursor (in point-and-click the input aim is the walk target), a bot's input aim
+const aimPt=c=>botCtl(c)||c.aimX===undefined?{x:c.input.ax,y:c.input.ay}:{x:c.aimX,y:c.aimY};
 const windMove=c=>c.key==='blackjack'?0.8:c.def.ranged&&!vikMonster(c)?0.65:0.85;
 function releaseAttack(c){
   const w=c.wind;c.wind=null;c.atkCd=Math.max(0,1/asOf(c)-w.total);
@@ -1828,7 +1830,7 @@ function updateChamp(c,dt){
   if(c.cast){c.facing=c.cast.ang;c.cast.t-=dt;if(c.cast.t<=0){const f=c.cast.fn;c.cast=null;f();}return;}
   if(c.wind&&c.cancelWind){c.wind=null;c.atk=null;}  // stopping (S) drops the swing; nothing is spent
   // you keep moving while an attack winds up, a little slower (ranged champions more so, so kiting is not free)
-  if(c.wind){c.wind.t-=dt;if(c.wind.target&&targetable(c.wind.target))c.facing=angTo(c,c.wind.target.x,c.wind.target.y);if(c.wind.t<=0)releaseAttack(c);
+  if(c.wind){c.wind.t-=dt;if(c.wind.target&&targetable(c.wind.target))c.facing=angTo(c,c.wind.target.x,c.wind.target.y);else{const a=aimPt(c);c.wind.ang=c.facing=angTo(c,a.x,a.y);}if(c.wind.t<=0)releaseAttack(c);
     const ms=msOf(c)*windMove(c);c.x+=inp.mx*ms*dt;c.y+=inp.my*ms*dt;return;}
   // you face the way you walk; attacks and aimed abilities turn you toward the cursor only while they play
   if(c.mq)c.facing=c.mq.ang;else if(c.bjq)c.facing=c.bjq.ang;else if(inp.mx||inp.my)c.facing=Math.atan2(inp.my,inp.mx);
@@ -2191,7 +2193,7 @@ function applyFrame(c,f,frozen){
     else if(k==='c'){c.pend={k:e[1],until:G.t+0.35};if(e[1]==='Q')c.qUp=false;}
     else if(k==='u'){if(e[1]==='Q')c.qUp=true;}
     else if(k==='b'){const r=startRecall(c);if(r!=='ok'&&c===G.player)showReason(r);}
-    else if(k==='o'){const t=unitById(e[4]);if(t&&t.alive&&targetable(t))c.order={kind:'attack',t};else if(!e[4])c.order={kind:e[1]?'amove':'move',x:e[2],y:e[3],best:1e9,stall:0};}
+    else if(k==='o'){const t=unitById(e[4]);if(t&&t.alive&&targetable(t))c.order=edge(c,t)<=c.range+15?{kind:'attack',t}:{kind:'move',x:t.x,y:t.y,best:1e9,stall:0};else if(!e[4])c.order={kind:e[1]?'amove':'move',x:e[2],y:e[3],best:1e9,stall:0};}
     else if(k==='s'&&c.wind){c.order=null;c.cancelWind=true;}
     else if(k==='s')c.order=null;}
   if(c.cancelWind&&!c.wind)c.cancelWind=false;
@@ -2220,10 +2222,11 @@ function issueOrder(am,mark){const p=G.player;if(!p.alive)return;amove=false;
 // walk to the ordered spot, chase the ordered target into range, or attack-move
 function followOrder(c){
   const inp=c.input;let o=c.order,dest=null;
-  if(o&&o.kind==='amove'){let best=null,bd=1e9;for(const u of enemiesOf(c.team)){if(!targetable(u))continue;const e=edge(c,u);if(e<=c.range+60&&e<bd){bd=e;best=u;}}
-    if(best)o=c.order={kind:'attack',t:best};else dest=o;}
-  if(o&&o.kind==='attack'){const t=o.t;if(!t.alive||!targetable(t))c.order=o=null;
-    else if(edge(c,t)<=c.range){inp.attack=true;inp.attackTarget=t;inp.ax=t.x;inp.ay=t.y;}else dest=t;}
+  if(o&&o.kind==='amove'){let best=null,bd=1e9;for(const u of enemiesOf(c.team)){if(!targetable(u))continue;const e=edge(c,u);if(e<=c.range+15&&e<bd){bd=e;best=u;}}
+    if(best){inp.attack=true;inp.attackTarget=best;inp.ax=best.x;inp.ay=best.y;}else dest=o;}
+  if(o&&o.kind==='attack'){const t=o.t;
+    if(!t.alive||!targetable(t)||edge(c,t)>c.range+15||c.wind)c.order=o=null;  // one swing per click; no chasing
+    else{inp.attack=true;inp.attackTarget=t;inp.ax=t.x;inp.ay=t.y;}}
   else if(o&&o.kind==='move')dest=o;
   if(dest){const dx=dest.x-c.x,dy=dest.y-c.y,l=hyp(dx,dy);
     if(o.kind!=='attack'){if(l<o.best-2){o.best=l;o.stall=0;}else o.stall+=1/60;}
@@ -4097,6 +4100,7 @@ const CHAMP_INFO={
     combo:'Ballast Charge → Ink Tank → Haymaker at the fist → vent auto when Pressure is full → Deep-Sea Drop on the runner'}};
 // what changed, newest first
 const NEWS=[
+  {v:'Build 42',d:'Oct 30',h:'Aimed attacks everywhere',i:['Basic attacks turn with your cursor while they wind up and land where it points, so you can keep moving and still hit.','Point-and-click: clicking an enemy in range swings at them (hold to keep swinging); out of range you walk to the spot instead of chasing. Attack-move hits whatever comes into range without chasing.','Marty\'s basic attack reach is shorter (165 to 125).','Black Jack\'s heavy round now always fires toward the cursor.']},
   {v:'Build 41',d:'Oct 30',h:'Grabs, rushes and a flying copy',i:['Marty: tap Hydraulic Haymaker for a quick punch, or hold it to extend the piston. Let go at full reach (the lane turns gold) to grab whoever is at the fist and haul them in.','Cora: Father\'s Chain is replaced by Rending Rush, a dash that slices through everyone in its path. Aim it near your grounded bronze axe to dash straight to it and catch it.','Mantis: the Phantom Anchor copy now shoots out of his body toward the cursor instead of appearing at the spot.']},
   {v:'Build 40',d:'Oct 30',h:'Marty gets moving',i:['Every champion now faces the way they walk. Attacks and aimed abilities still go where the mouse points, and turn you that way while they play.','Marty has a new walk in all eight directions, a standing pose that eases into an idle, and a full punch for basic attacks and Hydraulic Haymaker that lands at full reach.','Ballast Charge scoops up the first champion it hits and carries them; slam them into a wall or structure to stun them.','Point-and-click controls: W is now the utility ability and E the movement ability.']},
   {v:'Build 39',d:'Oct 30',h:'M4NTi5 enters the rift',i:['New champion: M4NTi5, "Mantis", a stealth assassin with telescopic scythe arms.','Hold Telescopic Strike to reach further; it deals bonus damage from behind.','Optical Camouflage, a holographic Phantom Anchor that looks real to your enemy, and Execution Grip to haul yourself onto the wounded.']},
