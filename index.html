@@ -1480,13 +1480,16 @@ function drawMantisCopy(c,t){if(!c.alive||!MT_READY)return;const k=c.anchor,mine
   const fr=mantisFrame(u);if(mine)fr.tint={col:'#7ff6ff',a:0.6+0.15*Math.sin(t*14)};
   drawAny(fr,q.x,q.y,(mine?0.55:0.95)*life*(0.9+0.1*Math.sin(t*23)),0);
   if(mine){ctx.save();ctx.globalAlpha=0.35*life;ctx.strokeStyle='#7ff6ff';ctx.lineWidth=1;const h=MT.H*SCALE;for(let y=0;y<h;y+=4*SCALE){const yy=q.y-((y+t*40*SCALE)%h);ctx.beginPath();ctx.moveTo(q.x-28*SCALE,yy);ctx.lineTo(q.x+28*SCALE,yy);ctx.stroke();}ctx.restore();}}
-const MT_ICONS={img:null,at:{P:0,Q:1,RMB:2,E:3,R:4}};
-(function(){const im=new Image();im.onload=()=>{MT_ICONS.img=im;
-  if(G&&G.champs&&G.champs.some(c=>c.key==='mantis'))buildHud();
-  if(typeof MENU!=='undefined'){if(MENU.scr==='champ'&&MENU.detail==='mantis')openChamp('mantis');if(MENU.scr==='play'&&pick==='mantis')renderSelPrev();}};im.src='assets/mantis_icons.webp';})();
+// painted ability icons: one 128px strip per champion, in the order passive, Q, RMB, E, R
+const ICON_AT={P:0,Q:1,RMB:2,E:3,R:4},ICONS={mantis:{img:null},marty:{img:null}};
+for(const key in ICONS){const im=new Image();im.onload=()=>{ICONS[key].img=im;
+  if(G&&G.champs&&G.champs.some(c=>c.key===key))buildHud();
+  if(typeof MENU!=='undefined'){if(MENU.scr==='champ'&&MENU.detail===key)openChamp(key);if(MENU.scr==='play'&&pick===key)renderSelPrev();}};im.src=`assets/${key}_icons.webp`;}
+function drawAtlasIcon(g,key,k){const I=ICONS[key];if(!I||!I.img||!(k in ICON_AT))return false;
+  const gr=g.createRadialGradient(26,22,4,26,26,40);gr.addColorStop(0,'#1c2a2e');gr.addColorStop(1,'#070b0e');g.fillStyle=gr;g.fillRect(0,0,52,52);
+  g.imageSmoothingEnabled=true;g.imageSmoothingQuality='high';g.drawImage(I.img,ICON_AT[k]*128,0,128,128,3,3,46,46);return true;}
 function drawMantisIcon(g,k){
-  if(MT_ICONS.img&&k in MT_ICONS.at){const gr=g.createRadialGradient(26,22,4,26,26,40);gr.addColorStop(0,'#1c2a2e');gr.addColorStop(1,'#070b0e');g.fillStyle=gr;g.fillRect(0,0,52,52);
-    g.imageSmoothingEnabled=true;g.imageSmoothingQuality='high';g.drawImage(MT_ICONS.img,MT_ICONS.at[k]*128,0,128,128,3,3,46,46);return;}const gr=g.createRadialGradient(26,22,4,26,26,40);gr.addColorStop(0,'#203034');gr.addColorStop(1,'#080d10');g.fillStyle=gr;g.fillRect(0,0,52,52);
+  if(drawAtlasIcon(g,'mantis',k))return;const gr=g.createRadialGradient(26,22,4,26,26,40);gr.addColorStop(0,'#203034');gr.addColorStop(1,'#080d10');g.fillStyle=gr;g.fillRect(0,0,52,52);
   g.lineCap='round';g.lineJoin='round';const C='#20e8ff',Gn='#7dff2a',O='#ff9f1c',M='#c9cfd0',D='#2b3033';
   const poly=(pts,fill,stroke,lw)=>{g.beginPath();pts.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.closePath();if(fill){g.fillStyle=fill;g.fill();}if(stroke){g.strokeStyle=stroke;g.lineWidth=lw||1.5;g.stroke();}};
   const diamond=(x,y,r,col)=>poly([[x,y-r],[x+r,y],[x,y+r],[x-r,y]],col);
@@ -3235,7 +3238,7 @@ function drawIcon(g,key,k,form){
   const S=g.canvas.width;g.setTransform(S/52,0,0,S/52,0,0);
   if(key==='viktor'){drawVikIcon(g,k,form);return;}
   if(key==='blackjack'){drawBJIcon(g,k);return;}
-  if(key==='marty'){drawMartyIcon(g,k);return;}
+  if(key==='marty'){if(!drawAtlasIcon(g,'marty',k))drawMartyIcon(g,k);return;}
   if(key==='mantis'){drawMantisIcon(g,k);return;}
   const gr=g.createRadialGradient(26,22,4,26,26,40);
   if(key==='cora'){gr.addColorStop(0,'#5a3a2a');gr.addColorStop(1,'#140c0a');}else{gr.addColorStop(0,'#5a1f2b');gr.addColorStop(1,'#14080b');}
