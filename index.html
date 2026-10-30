@@ -1656,6 +1656,7 @@ function releaseAttack(c){
     if(!tgt)tgt=meleeSweep(c,w.ang);
     if(!(c.key==='shade'&&SHEETS_READY)&&!(c.key==='cora'&&CORA_READY&&CORA_AUTO.img)&&c.key!=='marty')G.fx.push({k:'smear',x:c.x,y:c.y,z:48,ang:w.ang,side:w.side||1,col:w.ambush?'#c9a6ff':c.key==='cora'?(w.side>0?'#ff9a3c':'#6cc4ff'):c.key==='viktor'?'#ff5a2e':c.key==='marty'?'#8fe3ff':'#b48cff',r0:c.r*0.6,r1:c.r+c.range+(c.key==='viktor'?-20:18),span:c.key==='viktor'?1.3:2.1,t:0,dur:0.16});
     SFX.play('swing',c.x,c.y,c===G.player?1:0.6);
+    if(c.key==='marty')SFX.voice(c,'attack',0.12,12);  // now and then, not on every punch
     if(tgt)onHit(tgt);
   }else if(tgt){
     if(c.key==='viktor'){muzzle(c,angTo(c,tgt.x,tgt.y));SFX.play('hit',c.x,c.y,0.5);}
@@ -3227,8 +3228,18 @@ const SFX={ac:null,master:null,muted:false,nb:null,
       case'death':this.tone(320,55,0.7,0.28*v,'sawtooth');break;
       case'quake':this.noise(0.55,140,0.7,0.45*v,60);this.tone(80,35,0.45,0.35*v);break;
     }}catch(e){}
-  }
+  },
+  // recorded voice lines: loaded on first use, at most one line at a time per champion, and never on the sync RNG
+  vo:{},voT:{},
+  voice(c,name,chance,gap){if(!this.ac||this.muted||!G||G.preview)return;const lines=VO[c.key]&&VO[c.key][name];if(!lines||!lines.length)return;
+    for(const f of lines)if(this.vo[f]===undefined){this.vo[f]='loading';fetch(f).then(r=>r.arrayBuffer()).then(a=>this.ac.decodeAudioData(a)).then(d=>{this.vo[f]=d;}).catch(()=>{this.vo[f]=null;});}
+    if(G.t<(this.voT[c.id]||-99)||Math.random()>chance)return;
+    const v=c===G.player?1:clamp(1-hyp(c.x-cam.x,c.y-cam.y)/1700,0,1);if(v<0.03)return;
+    const b=this.vo[lines[Math.floor(Math.random()*lines.length)]];if(!b||b==='loading')return;if(this.ac.state==='suspended')this.ac.resume();
+    try{const s=this.ac.createBufferSource(),g=this.ac.createGain();s.buffer=b;g.gain.value=0.9*v;s.connect(g);g.connect(this.master);s.start();this.voT[c.id]=G.t+b.duration+gap;}catch(e){}}
 };
+// voice lines by champion and moment; each moment picks one of its files at random
+const VO={marty:{attack:['assets/vo/marty_attack_1.mp3']}};
 function shake(mag,dur){if(!G)return;if(!G.shake||G.shake.t<=0||mag>=G.shake.mag)G.shake={t:dur,dur,mag};}
 function impact(t,col,big){G.fx.push({k:'impact',x:t.x,y:t.y,z:heightOf(t)*0.5,t:0,dur:0.2,col,big,rays:Array.from({length:6},(_,i)=>i/6*TAU+rnd(-0.3,0.3))});}
 
