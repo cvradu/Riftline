@@ -1,5 +1,7 @@
-# Thistle: an 8x8 walk sheet (source-art/67.png) and a 2x4 standing sheet (source-art/68.png), both with rows/cells in the order
-# S, SE, E, NE, N, NW, W, SW. Packed into one sheet in the game's S,SW,W,NW,N,NE,E,SE row order: column 0 standing, 1-8 walking.
+# Thistle: a 16x8 walk sheet (source-art/69.png, 500px cells) with rows in the order S, SE, E, NE, N, NW, W, SW.
+# A 2x4 standing sheet (source-art/70.png) in the same order.
+# Packed into one sheet in the game's S,SW,W,NW,N,NE,E,SE row order: column 0 standing, 1-16 walking.
+# Each row keeps the painted registration between its frames, so the walk's bob and sway survive.
 # Run from tools/: python3 atlas_thistle.py
 import json
 import numpy as np
@@ -22,20 +24,20 @@ def cells(path,nr,nc):
     A=np.array(Image.open(path).convert('RGBA'));H,W=A.shape[:2];ch,cw=H//nr,W//nc
     return [[clean(A[r*ch:(r+1)*ch,c*cw:(c+1)*cw]) for c in range(nc)] for r in range(nr)]
 def bbox(a):ys,xs=np.nonzero(a[...,3]>128);return ys.min(),ys.max(),xs
-walk=cells('../source-art/67.png',8,8);st=cells('../source-art/68.png',2,4);stand=[st[i//4][i%4] for i in range(8)]
+NW=16;walk=cells('../source-art/69.png',8,NW);st=cells('../source-art/70.png',2,4);stand=[st[i//4][i%4] for i in range(8)]
 def scale_to(a,k):im=Image.fromarray(a);return np.array(im.resize((max(1,round(im.width*k)),max(1,round(im.height*k))),Image.LANCZOS))
-hw=np.median([bbox(c)[1]-bbox(c)[0] for c in walk[0]]);hs=bbox(stand[0])[1]-bbox(stand[0])[0]
+hw=np.median([bbox(c)[1]-bbox(c)[0] for c in walk[0]]);k=TARGET_H/hw;hs=bbox(stand[0])[1]-bbox(stand[0])[0]
 fr={}
 for si,d in enumerate(SRC_ORDER):
-    for c in range(9):
-        a=scale_to(stand[si],TARGET_H/hs) if c==0 else scale_to(walk[si][c-1],TARGET_H/hw)
-        ys,xs=np.nonzero(a[...,3]>128);bot=ys.max();top=ys.min();low=ys>top+(bot-top)*0.75;ax=float(np.median(xs[low]))
-        fr[(d,c)]=(a,ax,bot)
+    # one anchor per row, from frame 0's feet, shared by every frame in the row
+    a0=scale_to(walk[si][0],k);ys,xs=np.nonzero(a0[...,3]>128);bot=ys.max();top=ys.min();ax=float(np.median(xs[ys>top+(bot-top)*0.75]))
+    for c in range(1,NW+1):fr[(d,c)]=(scale_to(walk[si][c-1],k),ax,bot)
+    a=scale_to(stand[si],TARGET_H/hs);ys,xs=np.nonzero(a[...,3]>128);b=ys.max();t=ys.min();fr[(d,0)]=(a,float(np.median(xs[ys>t+(b-t)*0.75])),b)
 L=max(v[1] for v in fr.values());R=max(v[0].shape[1]-v[1] for v in fr.values());U=max(v[2] for v in fr.values());D=max(v[0].shape[0]-v[2] for v in fr.values())
 CW=int(np.ceil(L+R))+2;CH=int(np.ceil(U+D))+2;AX=int(np.ceil(L))+1;AY=int(np.ceil(U))+1
-S=Image.new('RGBA',(CW*9,CH*8),(0,0,0,0))
+S=Image.new('RGBA',(CW*(NW+1),CH*8),(0,0,0,0))
 for gi,d in enumerate(ORDER):
-    for c in range(9):a,ax,bot=fr[(d,c)];S.alpha_composite(Image.fromarray(a),(c*CW+int(round(AX-ax)),gi*CH+int(round(AY-bot))))
+    for c in range(NW+1):a,ax,bot=fr[(d,c)];S.alpha_composite(Image.fromarray(a),(c*CW+int(round(AX-ax)),gi*CH+int(round(AY-bot))))
 S.save(OUT,quality=88,method=6)
-meta=dict(cw=CW,ch=CH,ax=AX,ay=AY,h=TARGET_H);json.dump(meta,open('thistle/meta.json','w'));print(json.dumps(meta))
+meta=dict(cw=CW,ch=CH,ax=AX,ay=AY,h=TARGET_H,walk=NW);json.dump(meta,open('thistle/meta.json','w'));print(json.dumps(meta))
 bg=Image.new('RGBA',S.size,(70,76,82,255));bg.alpha_composite(S);k=1800/bg.width;bg.convert('RGB').resize((int(bg.width*k),int(bg.height*k))).save('thistle/prev.jpg',quality=85)
