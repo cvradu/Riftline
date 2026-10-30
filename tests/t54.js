@@ -1,0 +1,10 @@
+const {chromium}=require('playwright');
+(async()=>{const b=await chromium.launch();const errs=[];
+ const pg=await b.newPage({viewport:{width:1400,height:900}});pg.on('pageerror',e=>errs.push(e.message));await pg.goto('file://'+process.cwd()+'/site/index.html');await pg.waitForTimeout(1500);
+ await pg.evaluate(()=>window.scrollTo(0,0));await pg.screenshot({path:'menu4.png',fullPage:false});
+ await pg.evaluate(()=>{document.getElementById('menu').scrollTop=600;});await pg.waitForTimeout(200);await pg.screenshot({path:'menu5.png'});
+ await pg.click('.card[data-k="viktor"]');await pg.click('#startBtn');await pg.waitForTimeout(600);
+ await pg.screenshot({path:'vikhud1.png',clip:{x:330,y:690,width:740,height:210}});
+ await pg.evaluate(()=>{const R=window.__riftline,G=R.G,p=G.player;p.ranks.R=1;p.res=100;window.__tc(p,'R',0,0);for(let i=0;i<50;i++)R.tick(1/60);});
+ await pg.waitForTimeout(400);await pg.screenshot({path:'vikhud2.png',clip:{x:330,y:690,width:740,height:210}});
+ console.log('errors',errs);await b.close();})();

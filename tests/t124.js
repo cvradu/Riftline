@@ -1,0 +1,23 @@
+const {chromium}=require('playwright');
+(async()=>{
+ const b=await chromium.launch();const pg=await b.newPage({viewport:{width:1280,height:720}});const errs=[];pg.on('pageerror',e=>errs.push(e.message+' '+(e.stack||'').split('\n')[1]));
+ await pg.goto('file://'+process.cwd()+'/site/index.html');await pg.waitForTimeout(1500);
+ await pg.click('.mapcard[data-v="lane"]');await pg.click('.card[data-k="marty"]');await pg.click('#optFoe button[data-v="cora"]');await pg.click('#startBtn');await pg.waitForTimeout(800);await pg.mouse.move(1000,330);
+ const clip={x:380,y:150,width:520,height:380};const shots=[];
+ const step=async(fn,n,label)=>{await pg.evaluate(([fn,n])=>{const R=window.__riftline,G=R.G,p=G.player,o=G.bot;eval(fn);for(let i=0;i<n;i++)R.tick(1/60);},[fn,n]);await pg.waitForTimeout(300);if(label){const f='mp_'+shots.length+'.png';await pg.screenshot({path:f,clip});shots.push([f,label]);}};
+ await step(`G.minions=[];G.spawnQ=[];G.nextWave=1e9;G.hitStop=1e9;p.level=9;p.ranks={Q:1,E:1,RMB:1,R:1};p.points=0;o.hp=o.maxHp=9000;p.x=2500;p.y=650;o.x=2700;o.y=640;o.stunT=1e9;p.vent=true;p.res=100;`,30,'idle, pressure full');
+ await step(`p.atkCd=0;window.__sa(p,o);`,8,'auto wind-up');
+ await step('',8,'auto punch (vent)');
+ await step(`p.shield={amt:200,max:200,until:G.t+5};`,20,'shield bubble');
+ await step(`p.shield=null;p.cds.Q=0;o.x=2880;window.__tc(p,'Q',o.x,o.y);`,18,'Q wind-up');
+ await step('',12,'Q punch');
+ await step(`G.fx=[];p.mfPunchT=undefined;p.cds.RMB=0;window.__tc(p,'RMB',p.x,p.y);`,9,'ink spray');
+ await step('',25,'ink cloud');
+ await step(`G.inks=[];p.cds.E=0;p.x=2300;o.x=2900;window.__tc(p,'E',2900,640);`,10,'charging');
+ await step('',40,'skid stop');
+ await step(`p.dash=null;p.cds.R=0;p.x=2500;p.y=650;o.x=2800;o.y=640;window.__tc(p,'R',2800,650);`,5,'drop crouch');
+ await step('',14,'launch');
+ await step('',50,'falling');
+ await step('',10,'landing');
+ require('fs').writeFileSync('mp_list.json',JSON.stringify(shots));
+ console.log('errors',errs);await b.close();})();

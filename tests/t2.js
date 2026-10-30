@@ -1,0 +1,26 @@
+const {chromium}=require('playwright');
+(async()=>{
+ const b=await chromium.launch();const pg=await b.newPage({viewport:{width:1600,height:900}});
+ const errs=[];pg.on('pageerror',e=>errs.push('PAGEERR '+e.message+'\n'+e.stack));pg.on('console',m=>{if(m.type()==='error')errs.push(m.text())});
+ const html=require('fs').readFileSync('/home/user/riftline/index.html','utf8');
+ await pg.setContent('<!doctype html><html><head><meta charset="utf-8"></head><body>'+html+'</body></html>');
+ await pg.waitForTimeout(600);
+ await pg.screenshot({path:'iso_menu.png'});
+ const sim=await pg.evaluate(()=>{const R=window.__riftline;R.newGame();const G=R.G;G.autoPlayer=true;G.killsToWin=99;for(let i=0;i<60*240;i++)R.tick(1/60);return `t=${G.t|0} score ${G.score} lvl ${G.player.level}/${G.bot.level}`;});
+ console.log(sim);
+ await pg.evaluate(()=>{const R=window.__riftline;R.newGame();});
+ await pg.mouse.move(1100,350);
+ const p0=await pg.evaluate(()=>({x:window.__riftline.G.player.x,y:window.__riftline.G.player.y}));
+ await pg.keyboard.down('KeyD');await pg.waitForTimeout(1000);await pg.keyboard.up('KeyD');
+ const p1=await pg.evaluate(()=>({x:window.__riftline.G.player.x,y:window.__riftline.G.player.y}));
+ await pg.keyboard.down('KeyW');await pg.waitForTimeout(800);await pg.keyboard.up('KeyW');
+ const p2=await pg.evaluate(()=>({x:window.__riftline.G.player.x,y:window.__riftline.G.player.y}));
+ console.log('D move',p0,p1,'W move',p2);
+ await pg.evaluate(()=>{window.__riftline.G.autoPlayer=true;});
+ await pg.waitForTimeout(22000);
+ await pg.screenshot({path:'iso_game.png'});
+ await pg.waitForTimeout(12000);
+ await pg.screenshot({path:'iso_game2.png'});
+ console.log('ERRORS',errs.slice(0,10));
+ await b.close();
+})();

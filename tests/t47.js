@@ -1,0 +1,10 @@
+const {chromium}=require('playwright');
+(async()=>{const b=await chromium.launch();const errs=[];
+ const pg=await b.newPage({viewport:{width:1280,height:720}});pg.on('pageerror',e=>errs.push(e.message));await pg.goto('file://'+process.cwd()+'/site/index.html');await pg.waitForTimeout(900);
+ await pg.click('.mapcard[data-v="col"]');await pg.waitForTimeout(200);await pg.screenshot({path:'menu3.png'});
+ console.log('start btn:',await pg.textContent('#startBtn'),'| kills opt hidden:',await pg.evaluate(()=>document.getElementById('optKills').closest('.opt').hidden));
+ await pg.click('.card >> nth=1');await pg.click('#startBtn');await pg.waitForTimeout(500);
+ console.log('mode',await pg.evaluate(()=>window.__riftline.G.mode),'player',await pg.evaluate(()=>window.__riftline.G.player.name));
+ await pg.keyboard.press('Escape');await pg.click('#menuBtn');await pg.waitForTimeout(300);
+ console.log('back in menu, selection kept:',await pg.evaluate(()=>document.querySelector('.mapcard[aria-pressed="true"]').dataset.v));
+ console.log('errors',errs);await b.close();})();
