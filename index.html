@@ -1536,7 +1536,7 @@ const T2=CH.thistle.ab;
 const TH={H:120,stride:150,over:0.2,
   q:{range:650,half:45,tip:170,wind:0.25},
   w:{range:800,r:260,dur:4,fly:0.45},
-  e:{range:800,speed:1500,radius:22,spread:0.18,slow:0.3,slowT:1.5,ground:1.5},
+  e:{range:750,r:85,gap:175,fly:0.35,life:4,slow:0.3,linger:0.5},
   r:{range:650,r:150,delay:0.6,hold:1.5,spit:300,life:5,bite:260,biteCd:1},
   dash:{len:300,speed:1000,r:170,knock:180}};
 // her poison: per stack, every 0.5s
@@ -1577,10 +1577,21 @@ function fogHides(u){for(const k of G.clouds){if(k.team!==u.team||cloudOn(k,u))c
 
 T2.E={name:'Burr Volley',max:5,cd:[12,11,10,9,8],cost:[60,60,60,60,60],range:TH.e.range,
   dmg:(c,r)=>[40,65,90,115,140][r-1]+0.4*c.ad,
-  desc:(c,r,a)=>`Mother flings 3 burrs in a narrow fan, up to ${TH.e.range} units. Each enemy hit takes <span class="ph">${n0(a.dmg(c,r))}</span> magic damage (40/65/90/115/140 + 40% AD) and 1 poison stack, is slowed by ${TH.e.slow*100}% for ${TH.e.slowT}s and is <b>grounded</b> for ${TH.e.ground}s: no Space dash and no abilities that move them. One burr per enemy per cast. ${n0(a.cd[r-1]*100/(100+c.ah))}s cooldown.`,
-  cast(c,ax,ay,r,a){const ang=angTo(c,ax,ay),hit=new Set();
-    beginCast(c,0.2,ang,()=>{for(const s of [-1,0,1])shoot(c,{ang:ang+s*TH.e.spread,speed:TH.e.speed,range:TH.e.range,radius:TH.e.radius,hitSet:hit,kind:'burr',onHit:u=>thBurr(c,u,r)});SFX.play('swing',c.x,c.y,0.7);});return true;}};
-function thBurr(c,u,r){if(u.kind==='tower')return;thHit(c,u,T2.E.dmg(c,r),1);slow(u,TH.e.slow,TH.e.slowT);groundUnit(u,TH.e.ground);spark(u.x,u.y,'#c8a36a',6);}
+  desc:(c,r,a)=>`Mother flings 3 clumps of burrs that land in a line across the cursor, up to ${TH.e.range} units away, and take root as thickets for ${TH.e.life}s. Enemies under a thicket when it lands take <span class="ph">${n0(a.dmg(c,r))}</span> magic damage (40/65/90/115/140 + 40% AD) and 1 poison stack. Enemies standing in a thicket are slowed by ${TH.e.slow*100}%, gain a poison stack every second, and are <b>grounded</b> until ${TH.e.linger}s after they leave: no Space dash and no abilities that move them. ${n0(a.cd[r-1]*100/(100+c.ah))}s cooldown.`,
+  cast(c,ax,ay,r,a){const ang=angTo(c,ax,ay),l=Math.min(TH.e.range,hyp(ax-c.x,ay-c.y)),cx=c.x+Math.cos(ang)*l,cy=c.y+Math.sin(ang)*l,px=-Math.sin(ang),py=Math.cos(ang);
+    // the line runs across the throw, centred on the cursor
+    const pts=[-1,0,1].map(s=>clampWalk(cx+px*s*TH.e.gap,cy+py*s*TH.e.gap,TH.e.r*0.5));
+    beginCast(c,0.2,ang,()=>{G.thickets.push({team:c.team,src:c,r,pts,t0:G.t,land:G.t+TH.e.fly,until:G.t+TH.e.fly+TH.e.life,landed:false,next:0,pz:{}});SFX.play('swing',c.x,c.y,0.7);});return true;}};
+const inThicket=(g,u)=>g.landed&&g.pts.some(q=>hyp(u.x-q.x,u.y-q.y)<TH.e.r+u.r*0.5);
+function updateThickets(){if(!G.thickets.length)return;
+  for(const g of G.thickets){if(G.t<g.land)continue;const c=g.src;
+    if(!g.landed){g.landed=true;g.next=G.t;for(const q of g.pts){ring(q.x,q.y,10,TH.e.r,'#c8a36a',0.35);spark(q.x,q.y,'#8a6a3a',6);}
+      for(const u of enemiesOf(g.team))if(u.kind!=='tower'&&hittable(u)&&inThicket(g,u)){thHit(c,u,T2.E.dmg(c,g.r),1);g.pz[u.id]=G.t+1;}}
+    if(G.t<g.next)continue;g.next+=0.25;
+    for(const u of enemiesOf(g.team)){if(u.kind==='tower'||!hittable(u)||!inThicket(g,u))continue;
+      slow(u,TH.e.slow,0.35);groundUnit(u,TH.e.linger);
+      if((g.pz[u.id]||0)<=G.t){poison(u,c,thPoison(c));g.pz[u.id]=G.t+1;}}}
+  G.thickets=G.thickets.filter(g=>G.t<g.until);}
 
 T2.R={name:"Mother's Maw",max:3,cd:[100,85,70],cost:[100,100,100],range:TH.r.range,
   dmg:(c,r)=>[150,250,350][r-1]+0.8*c.ad, bite:(c,r)=>[30,50,70][r-1]+0.2*c.ad,
@@ -1647,6 +1658,15 @@ function drawCloudsGround(t){const p=G.player;
     gr.addColorStop(0,`rgba(170,210,70,${0.42*life})`);gr.addColorStop(0.8,`rgba(130,180,50,${0.32*life})`);gr.addColorStop(1,'rgba(110,160,40,0)');ctx.fillStyle=gr;ctx.beginPath();ctx.arc(k.x,k.y,k.r,0,TAU);ctx.fill();
     for(let i=0;i<9;i++){const an=i/9*TAU+t*0.25+k.t0,rr=k.r*(0.35+0.4*((i*37)%10)/10),q={x:k.x+Math.cos(an)*rr,y:k.y+Math.sin(an)*rr};ctx.fillStyle=`rgba(210,240,120,${0.22*life})`;ctx.beginPath();ctx.arc(q.x,q.y,38+10*Math.sin(t*1.7+i),0,TAU);ctx.fill();}
     groundEllipse(k.x,k.y,k.r,`rgba(200,240,110,${0.5*life})`,3);}
+  for(const g of G.thickets){
+    if(!g.landed){for(const q of g.pts)groundEllipse(q.x,q.y,TH.e.r,'rgba(200,163,106,.7)',4,[12,8]);continue;}
+    const life=clamp((g.until-G.t)/0.5,0,1)*clamp((G.t-g.land)/0.2,0,1);
+    for(const q of g.pts){ctx.fillStyle=`rgba(70,52,26,${0.55*life})`;ctx.beginPath();ctx.arc(q.x,q.y,TH.e.r,0,TAU);ctx.fill();
+      ctx.strokeStyle=`rgba(200,163,106,${0.85*life})`;ctx.lineWidth=3;
+      for(let i=0;i<14;i++){const a=i*2.4+q.x*0.01,d=TH.e.r*(0.2+0.75*((i*7)%10)/10),x=q.x+Math.cos(a)*d,y=q.y+Math.sin(a)*d;
+        for(let j=0;j<4;j++){const b=a+j*PI/2+0.4;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+Math.cos(b)*12,y+Math.sin(b)*12);ctx.stroke();}}
+      ctx.fillStyle=`rgba(79,143,53,${0.7*life})`;for(let i=0;i<6;i++){const a=i*1.1+q.y*0.01,d=TH.e.r*0.6;ctx.beginPath();ctx.ellipse(q.x+Math.cos(a)*d,q.y+Math.sin(a)*d,14,6,a,0,TAU);ctx.fill();}
+      groundEllipse(q.x,q.y,TH.e.r,`rgba(200,163,106,${0.6*life})`,3);}}
   for(const k of G.traps)if(!k.snapped){const f=clamp((G.t-k.t0)/TH.r.delay,0,1);ctx.fillStyle=`rgba(184,40,63,${0.12+0.25*f})`;ctx.beginPath();ctx.arc(k.x,k.y,TH.r.r*f,0,TAU);ctx.fill();groundEllipse(k.x,k.y,TH.r.r,'rgba(155,224,90,.8)',4,[14,10]);}
     else if(!k.held)groundEllipse(k.x,k.y,TH.r.bite,'rgba(155,224,90,.22)',3,[10,12]);}
 function drawTraps(t){for(const k of G.traps){if(!k.snapped&&G.t-k.t0<TH.r.delay*0.5)continue;
@@ -2311,7 +2331,7 @@ function botThink(c,dt){
   if(vik&&vis&&mode==='retreat'&&!vikMonster(c)&&d<320&&can('RMB'))cast('RMB',foe.x,foe.y);
   // Thistle: burrs first to slow and ground, the cloud on whoever can't dash out, Thornlash at the tip, and Mother's Maw once they are low or pinned
   if(th&&vis&&mode!=='retreat'&&(mode!=='farm'||(d<760&&hpP>=fP-0.05&&!foeSafe))){
-    if(d<TH.e.range-60&&can('E')){const p=predict(c,foe,TH.e.speed,0.2);cast('E',p.x,p.y);}
+    if(d<TH.e.range&&can('E')){const p=predict(c,foe,1e9,0.2+TH.e.fly);cast('E',p.x,p.y);}
     if(d<TH.w.range+TH.w.r*0.5&&(foe.groundT>0||foe.stunT>0||slowed(foe)||d<320)&&can('RMB')){const p=predict(c,foe,1e9,TH.w.fly*0.6);cast('RMB',p.x,p.y);}
     if(d<TH.q.range+foe.r-15&&can('Q')){const p=predict(c,foe,1e9,TH.q.wind);cast('Q',p.x,p.y);}
     if(c.ranks.R&&d<TH.r.range&&(killable||fP<0.45||foe.groundT>0||foe.stunT>0)&&(!foeSafe||fP<0.2)&&can('R')){const p=predict(c,foe,1e9,TH.r.delay*0.7);cast('R',p.x,p.y);}
@@ -3082,7 +3102,6 @@ function drawProj(p,t){
     case'bjshot':case'bjshotQ':case'bjgold':{const I=p.kind==='bjgold'?BJ_SHOT.gold:BJ_SHOT.img,sc=p.kind==='bjshot'?0.34:0.44;if(I){const fi=Math.floor(t*14+(p.age||0)*20)%4;ctx.globalCompositeOperation='lighter';ctx.drawImage(I,fi*BJ_SHOT.cw,0,BJ_SHOT.cw,BJ_SHOT.ch,-BJ_SHOT.cw*sc,-BJ_SHOT.ch*sc/2,BJ_SHOT.cw*sc,BJ_SHOT.ch*sc);ctx.globalCompositeOperation='source-over';}break;}
     case'bullet':{ctx.globalCompositeOperation='lighter';ctx.strokeStyle='rgba(255,210,120,.55)';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(-34,0);ctx.lineTo(4,0);ctx.stroke();ctx.strokeStyle='#fff3c8';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-18,0);ctx.lineTo(6,0);ctx.stroke();ctx.globalCompositeOperation='source-over';break;}
     case'seed':ctx.fillStyle='#2c5a1e';ctx.beginPath();ctx.ellipse(0,0,9,6,0,0,TAU);ctx.fill();ctx.fillStyle='#8fd14f';ctx.beginPath();ctx.ellipse(1,-1,6,3.5,0,0,TAU);ctx.fill();ctx.strokeStyle='rgba(143,209,79,.45)';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-26,0);ctx.lineTo(-9,0);ctx.stroke();break;
-    case'burr':ctx.rotate(t*18);ctx.fillStyle='#8a6a3a';ctx.beginPath();ctx.arc(0,0,8,0,TAU);ctx.fill();ctx.strokeStyle='#c8a36a';ctx.lineWidth=2;for(let i=0;i<8;i++){const a=i/8*TAU;ctx.beginPath();ctx.moveTo(Math.cos(a)*7,Math.sin(a)*7);ctx.lineTo(Math.cos(a)*13,Math.sin(a)*13);ctx.stroke();}break;
     case'tether':{ctx.fillStyle='#3a1a14';ctx.beginPath();ctx.moveTo(14,0);ctx.lineTo(-4,-9);ctx.lineTo(0,0);ctx.lineTo(-4,9);ctx.closePath();ctx.fill();ctx.strokeStyle='#d9574a';ctx.lineWidth=2;ctx.stroke();break;}
     case'arrowBig':ctx.strokeStyle='#9fe8ff';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(-28,0);ctx.lineTo(10,0);ctx.stroke();ctx.fillStyle='#e8fbff';ctx.beginPath();ctx.moveTo(16,0);ctx.lineTo(6,-6);ctx.lineTo(6,6);ctx.fill();break;
     case'arrowQ':{const gr=ctx.createLinearGradient(-90,0,20,0);gr.addColorStop(0,'rgba(120,220,255,0)');gr.addColorStop(1,'rgba(160,235,255,.9)');ctx.fillStyle=gr;ctx.fillRect(-90,-7,110,14);ctx.strokeStyle='#ffffff';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-30,0);ctx.lineTo(18,0);ctx.stroke();ctx.fillStyle='#e8fbff';ctx.beginPath();ctx.moveTo(26,0);ctx.lineTo(14,-8);ctx.lineTo(14,8);ctx.fill();break;}
@@ -3799,7 +3818,7 @@ function banner(title,sub,dur){const b=$('banner');b.querySelector('b').textCont
 function startRound(){const C=G.col;C.round++;C.state='count';C.stateT=4;C.lastN=null;C.t=0;C.storm=null;C.stormWarned=false;C.stormTick=0;C.beads=[];
   C.cp={openAt:COL.CP_OPEN,prog:0,team:null,contested:false};C.event=null;C.meteors=[];C.lava=[];C.quake=null;C.lavaTick=0;C.portalReady=[COL.PORTAL_OPEN,COL.PORTAL_OPEN];
   for(const p of C.plants){p.alive=false;p.ripeAt=COL.PLANT_FIRST;}
-  G.projs=[];G.rifts=[];G.trails=[];G.inks=[];G.clouds=[];G.traps=[];G.arena=null;G.fx=[];G.texts=[];
+  G.projs=[];G.rifts=[];G.trails=[];G.inks=[];G.clouds=[];G.traps=[];G.thickets=[];G.arena=null;G.fx=[];G.texts=[];
   const L=COL.LEVELS[Math.min(C.round,3)-1];
   for(const c of G.champs){const a=COL.spawn[c.team]*PI/180;
     c.alive=true;resetKitState(c);colLevel(c,L);c.hp=c.maxHp;resetKitState(c);if(c.def.resource==='Energy')c.res=c.maxRes;
@@ -4164,7 +4183,7 @@ let pick='cora',optKills=3,optXp=1,optMap='lane',optFoe='random';
 function newGame(){
   const M=NET.live?NET.match:null;
   UID=1;SIM_RNG=mulberry(M?M.seed:(Math.random()*4294967296)>>>0);
-  G={mode:M?M.map:optMap,t:0,paused:false,over:null,overT:0,overShown:false,champs:[],minions:[],towers:[],projs:[],rifts:[],trails:[],inks:[],clouds:[],traps:[],fx:[],texts:[],feedQ:[],spawnQ:[],score:[0,0],waveN:0,nextWave:5,
+  G={mode:M?M.map:optMap,t:0,paused:false,over:null,overT:0,overShown:false,champs:[],minions:[],towers:[],projs:[],rifts:[],trails:[],inks:[],clouds:[],traps:[],thickets:[],fx:[],texts:[],feedQ:[],spawnQ:[],score:[0,0],waveN:0,nextWave:5,
      relics:RELIC_POS.map(p=>({x:p.x,y:p.y,r:30,active:false,at:45})),killsToWin:M?M.k:optKills,xpRate:M?M.x:optXp,hover:null,tickN:0};
   const others=Object.keys(CH).filter(k=>k!==pick),ks=M?M.ch:[pick,optFoe==='random'?others[(Math.random()*others.length)|0]:optFoe];
   // online both champions are people: the host plays blue, the guest red
@@ -4212,7 +4231,7 @@ function tick(dt){
   for(const c of G.champs){c.px=c.x;c.py=c.y;updateChamp(c,dt);}
   for(const m of G.minions)updateMinion(m,dt);
   for(const t of G.towers)updateTower(t,dt);
-  updateProjs(dt);updateRifts(dt);updateTrails(dt);updateInks(dt);updateBleeds();updatePoisons();updateClouds();updateTraps();
+  updateProjs(dt);updateRifts(dt);updateTrails(dt);updateInks(dt);updateBleeds();updatePoisons();updateClouds();updateTraps();updateThickets();
   separate();updateArena();if(isCol()){for(const c of G.champs)colClamp(c,c.r);updateVision();colResolve();}else updateVision();
   for(const c of G.champs){const vx=(c.x-c.px)/dt,vy=(c.y-c.py)/dt;c.vx+=(clamp(vx,-600,600)-c.vx)*0.3;c.vy+=(clamp(vy,-600,600)-c.vy)*0.3;c.walkD=(c.walkD||0)+hyp(c.x-c.px,c.y-c.py);}
   G.minions=G.minions.filter(m=>m.alive||m.deadT<0.5);
@@ -4291,7 +4310,7 @@ const CHAMP_INFO={
     combo:'Ballast Charge → Ink Tank → Haymaker at the fist → vent auto when Pressure is full → Deep-Sea Drop on the runner'},
   thistle:{diff:2,tags:['Poison','Zone control','Grounding'],rate:{Damage:7,Toughness:3,Mobility:4,Control:9,Range:8},
     style:'Thistle rides Mother, a carnivorous plant with an appetite. She wins by owning ground: a poison cloud the enemy cannot see out of, burrs that stop them dashing away, and a flytrap that swallows them whole. Every ability poisons, and the stacks keep ticking after they escape. (Placeholder art.)',
-    tips:['Poison stacks: the longer they stay in your reach, the harder every tick hits.','Burr Volley grounds: a grounded enemy cannot use their Space dash or any dash in their kit. Throw it before the cloud so they cannot walk out of it fast.','Overgrowth makes slowed or grounded enemies take more from your abilities. Land the burrs first.','Thornlash hits hardest at the tip. Keep your distance and catch them with the end of the vine.','Mother\'s Maw spits the enemy back toward you. Stand where you want them to land, ideally in your cloud.'],
+    tips:['Poison stacks: the longer they stay in your reach, the harder every tick hits.','Burr Volley plants a line of thickets across the cursor. Enemies standing in them are slowed and grounded, so they cannot use their Space dash or any dash in their kit. Use the line to wall off an escape route or the edge of your cloud.','Overgrowth makes slowed or grounded enemies take more from your abilities. Land the burrs first.','Thornlash hits hardest at the tip. Keep your distance and catch them with the end of the vine.','Mother\'s Maw spits the enemy back toward you. Stand where you want them to land, ideally in your cloud.'],
     combo:'Burr Volley → Pollen Cloud on the grounded target → Thornlash at the tip → Mother\'s Maw to finish'}};
 // what changed, newest first
 const NEWS=[
@@ -4439,7 +4458,7 @@ function pvSave(){return{G,cx:cam.x,cy:cam.y,camFree,SHX,SHY,UID,RNG:SIM_RNG,mct
 function pvLoad(s){G=s.G;cam.x=s.cx;cam.y=s.cy;camFree=s.camFree;SHX=s.SHX;SHY=s.SHY;UID=s.UID;SIM_RNG=s.RNG;mctx=s.mctx;ctx=s.ctx;RS=s.RS;SET.lead=s.lead;}
 function pvStart(key,k){PV.key=key;PV.k=k;PV.on=true;PV.acc=0;const s=pvSave();
   try{UID=1;SIM_RNG=mulberry(7+PV.n++);
-    G={mode:'lane',preview:true,t:0,paused:false,over:null,overT:0,overShown:false,champs:[],minions:[],towers:[],projs:[],rifts:[],trails:[],inks:[],clouds:[],traps:[],fx:[],texts:[],feedQ:[],spawnQ:[],score:[0,0],waveN:0,nextWave:Infinity,relics:[],killsToWin:99,xpRate:0,hover:null,tickN:0};
+    G={mode:'lane',preview:true,t:0,paused:false,over:null,overT:0,overShown:false,champs:[],minions:[],towers:[],projs:[],rifts:[],trails:[],inks:[],clouds:[],traps:[],thickets:[],fx:[],texts:[],feedQ:[],spawnQ:[],score:[0,0],waveN:0,nextWave:Infinity,relics:[],killsToWin:99,xpRate:0,hover:null,tickN:0};
     const S=pvScenario(key,k),me=makeChamp(key,BLUE,true),foe=makeChamp(key==='cora'?'viktor':'cora',RED,true);
     for(const c of [me,foe]){c.level=9;computeStats(c,true);c.hp=c.maxHp;}
     me.ranks={Q:4,E:4,RMB:3,R:2};for(const kk of ABK){const a=me.def.ab[kk];if(a.charges)me.chg[kk]=a.charges;}me.points=0;
