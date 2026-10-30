@@ -635,6 +635,19 @@ function throwAxe(c,k,ax_,ay_,o){
 function bleed(u,src,total){if(!u.alive||u.kind==='tower')return;u.bleed={src,per:total/4,n:4,next:G.t+0.5};}
 function updateBleeds(){for(const u of [...G.champs,...G.minions]){const b=u.bleed;if(!b)continue;if(!u.alive){u.bleed=null;continue;}
   if(G.t>=b.next){b.next+=0.5;b.n--;dealDamage(b.src,u,b.per,'phys',{});spark(u.x,u.y,'#d42a3a',4);if(b.n<=0)u.bleed=null;}}}
+// poison: a stacking magic damage-over-time any kit can apply. Each stack carries the per-tick damage its source gave it, and every
+// 0.5s the target takes the sum of its stacks. A new stack refreshes the 2s hold; once the hold runs out the oldest stack drops each tick
+const POISON={max:12,tick:0.5,hold:2};
+function poison(u,src,per){if(!u.alive||u.kind==='tower'||!(per>0))return;
+  const p=u.poison||(u.poison={stacks:[],next:G.t+POISON.tick,until:0});
+  if(p.stacks.length>=POISON.max)p.stacks.shift();p.stacks.push({src,per});p.until=G.t+POISON.hold;}
+const poisonStacks=u=>u.poison?u.poison.stacks.length:0;
+function updatePoisons(){for(const u of [...G.champs,...G.minions]){const p=u.poison;if(!p)continue;if(!u.alive){u.poison=null;continue;}
+  if(G.t<p.next)continue;p.next+=POISON.tick;
+  // one damage instance per source, so each champion's poison is credited to them
+  const by=new Map();for(const s of p.stacks)by.set(s.src,(by.get(s.src)||0)+s.per);
+  for(const [src,amt] of by)dealDamage(src,u,amt,'magic',{});spark(u.x,u.y,'#8fd14f',3+Math.min(6,p.stacks.length>>1));
+  if(G.t>=p.until)p.stacks.shift();if(!p.stacks.length||!u.alive)u.poison=null;}}
 // recall: the axe flies back from wherever it is, hitting everything along the way, and arms the cleave when caught
 function recallAxe(c,k,dmg){
   const ax=c.axes[k],from=axePos(ax);stopFlight(ax);ax.state='returning';const tok={g:false},hit=new Set();
@@ -1806,7 +1819,7 @@ function cancelRecall(c){if(!c.recall)return;c.recall=null;if(c===G.player)showR
 function finishRecall(c){c.recall=null;ring(c.x,c.y,10,140,TEAML[c.team],0.5);
   c.x=FOUNT[c.team].x+(c.team?-80:80);c.y=MIDY;c.px=c.x;c.py=c.y;c.vx=c.vy=0;
   ring(c.x,c.y,10,180,TEAML[c.team],0.6);spark(c.x,c.y,TEAML[c.team],14);SFX.play('level',c.x,c.y);if(c===G.player){cam.x=c.x;cam.y=c.y;}}
-function respawn(c){c.alive=true;c.recall=null;c.bleed=null;computeStats(c,true);resetKitState(c);c.x=FOUNT[c.team].x+(c.team?-80:80);c.y=MIDY;c.stunT=0;c.slows=[];c.stealthT=0;c.untargetT=0;c.atkCd=0;c.wind=c.cast=c.dash=null;c.empower=null;c.retreat=false;c.spin=null;c.asBuff=null;c.dashCd=0;}
+function respawn(c){c.alive=true;c.recall=null;c.bleed=null;c.poison=null;computeStats(c,true);resetKitState(c);c.x=FOUNT[c.team].x+(c.team?-80:80);c.y=MIDY;c.stunT=0;c.slows=[];c.stealthT=0;c.untargetT=0;c.atkCd=0;c.wind=c.cast=c.dash=null;c.empower=null;c.retreat=false;c.spin=null;c.asBuff=null;c.dashCd=0;}
 function updateChamp(c,dt){
   if(!c.alive){c.recall=null;if(isCol())return;c.respawnT-=dt;if(c.respawnT<=0)respawn(c);return;}
   for(const k of ABK)c.cds[k]=Math.max(0,c.cds[k]-dt);
@@ -2874,6 +2887,8 @@ function drawBars(){
     if(c.crosscut&&c.crosscut.until>G.t)crossIcon(q.x,y-20);
     if(G.champs.some(o=>shadeQuarry(o)===c||vikBounty(o)===c))quarryIcon(q.x+66,y+6);
     if(c.bleed){const bx=x+w+9,by=y+3;ctx.fillStyle='#d42a3a';ctx.beginPath();ctx.moveTo(bx,by-6);ctx.quadraticCurveTo(bx+6,by+2,bx,by+6);ctx.quadraticCurveTo(bx-6,by+2,bx,by-6);ctx.fill();}
+    if(c.poison){const n=c.poison.stacks.length,px=x+w+(c.bleed?23:9),py=y+3;ctx.fillStyle='#8fd14f';ctx.beginPath();ctx.arc(px,py+1,6,0,TAU);ctx.fill();
+      ctx.fillStyle='#10200a';ctx.font='700 10px Oxanium, sans-serif';ctx.textAlign='center';ctx.fillText(n,px,py+4.5);}
     if(c.recall){const f=clamp((G.t-c.recall.start)/RECALL_T,0,1);bar(x,y+20,w,5,f,'#8fd8ff');
       ctx.fillStyle='#cfefff';ctx.font='600 12px Oxanium, sans-serif';ctx.textAlign='center';ctx.fillText(`Recall ${Math.max(0,c.recall.until-G.t).toFixed(1)}s`,x+w/2,y+38);}
   }
@@ -3618,7 +3633,7 @@ function startRound(){const C=G.col;C.round++;C.state='count';C.stateT=4;C.lastN
     c.x=COL.cx+Math.cos(a)*720;c.y=COL.cy+Math.sin(a)*720;c.facing=a+PI;c.input.ax=COL.cx;c.input.ay=COL.cy;
     c.cds={Q:0,E:0,RMB:0,R:0};c.dashCd=0;c.stunT=0;c.slows=[];c.stealthT=0;c.untargetT=0;c.atkCd=0;c.rootT=0;c.wind=c.cast=c.dash=null;c.empower=null;c.spin=null;c.asBuff=null;c.msBuff=null;
     c.windUsed=false;c.prevBush=-1;c.augList=c.augList||[];
-    c.bleed=null;c.recall=null;c.order=null;c.crosscut=null;c.shadeMark=null;c.eRecast=null;c.quarry=null;c.execBy=null;c.revealT=0;c.hidden=false;c.retreat=false;c.mem=null;c.lastChampHit=null;c.cleaveReady=null;c.vx=c.vy=0;c.atk=null;c.castAnim=null;}
+    c.bleed=null;c.poison=null;c.recall=null;c.order=null;c.crosscut=null;c.shadeMark=null;c.eRecast=null;c.quarry=null;c.execBy=null;c.revealT=0;c.hidden=false;c.retreat=false;c.mem=null;c.lastChampHit=null;c.cleaveReady=null;c.vx=c.vy=0;c.atk=null;c.castAnim=null;}
   cam.x=G.player.x;cam.y=G.player.y;buildHud();hudDirty=true;
   if(G.champs[0].augList.length<C.round){
     for(const c of G.champs){if(botCtl(c)){const bo=offerAugs(c);addAug(c,bo[(srand()*bo.length)|0].id);}else{c.augOffer=offerAugs(c);c.augPick=null;c.prepReady=false;}}
@@ -4024,7 +4039,7 @@ function tick(dt){
   for(const c of G.champs){c.px=c.x;c.py=c.y;updateChamp(c,dt);}
   for(const m of G.minions)updateMinion(m,dt);
   for(const t of G.towers)updateTower(t,dt);
-  updateProjs(dt);updateRifts(dt);updateTrails(dt);updateInks(dt);updateBleeds();
+  updateProjs(dt);updateRifts(dt);updateTrails(dt);updateInks(dt);updateBleeds();updatePoisons();
   separate();updateArena();if(isCol()){for(const c of G.champs)colClamp(c,c.r);updateVision();colResolve();}else updateVision();
   for(const c of G.champs){const vx=(c.x-c.px)/dt,vy=(c.y-c.py)/dt;c.vx+=(clamp(vx,-600,600)-c.vx)*0.3;c.vy+=(clamp(vy,-600,600)-c.vy)*0.3;c.walkD=(c.walkD||0)+hyp(c.x-c.px,c.y-c.py);}
   G.minions=G.minions.filter(m=>m.alive||m.deadT<0.5);
@@ -4196,7 +4211,7 @@ function renderStats(){const key=MENU.detail,I=CHAMP_INFO[key],c=demoChamp(key,M
   $('cdStats').innerHTML=Object.entries(I.rate).map(([n,v])=>`<div class="sbar"><span>${n}</span><div class="tr"><i style="width:${v*10}%"></i></div></div>`).join('')+
     `<div class="base" style="grid-column:1/-1">${[['Health',n0(c.maxHp)],['Attack damage',n0(c.ad)],['Attack speed',c.as.toFixed(2)],['Armor',n0(c.armor)],['Magic resist',n0(c.mr)],['Move speed',n0(c.baseMs)],['Attack range',n0(c.range)],[c.def.resource,c.def.resource==='Luck'?'1 shot':n0(c.maxRes)]].map(([a,b])=>`<div><b>${b}</b><span>${a}</span></div>`).join('')}</div>`;}
 // every numeric value an ability defines, by rank, at the chosen level
-const NUM_NAMES={dmg:'Damage',bonus:'Bonus damage',bleed:'Bleed',cleave:'Cleave',burn:'Burn every 0.5s',rip:'Gut Ripper',ripBleed:'Gut Ripper bleed',leap:'Landing damage',molt:'Molt',blast:'Kickback, all pellets',cut:'Each cut',snap:'Snap'};
+const NUM_NAMES={dmg:'Damage',bonus:'Bonus damage',bleed:'Bleed',poison:'Poison per stack',cleave:'Cleave',burn:'Burn every 0.5s',rip:'Gut Ripper',ripBleed:'Gut Ripper bleed',leap:'Landing damage',molt:'Molt',blast:'Kickback, all pellets',cut:'Each cut',snap:'Snap'};
 function selAbility(k){const key=MENU.detail,d=CH[key];MENU.ab=k;const max=abMax(d,k);if(!MENU.rank||MENU.rank>max)MENU.rank=max;
   for(const b of $('cdAbTabs').children)b.setAttribute('aria-selected',String(b.dataset.ab===k));
   const r=Math.min(MENU.rank,max),ranks={Q:0,E:0,RMB:0,R:0};if(k in ranks)ranks[k]=r;const c=demoChamp(key,MENU.level,ranks),a=d.ab[k];
