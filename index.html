@@ -2280,7 +2280,7 @@ addEventListener('mouseup',e=>{if(e.button===0)mouse.left=false;if(e.button===2)
 // ================= camera & isometric projection =================
 // Simulation stays in flat world coordinates; only drawing and input go through the projection.
 // World +x (toward red) maps to screen up-right, so the lane runs diagonally like a mid lane.
-let DPR=1,VW=0,VH=0,SCALE=1,PXd=3,BK=3,GFX='sharp',RS=1,ART_K=0,SHX=0,SHY=0;const cam={x:W/2,y:MIDY};const SPR=new Map();
+let DPR=1,VW=0,VH=0,SCALE=1,PXd=3,BK=3,GFX='pixel',RS=1,ART_K=0,SHX=0,SHY=0;const cam={x:W/2,y:MIDY};const SPR=new Map();
 const IC=Math.SQRT1_2,IK=0.6,CLIFF_H=110,DROP_H=190;
 // the camera's heading around the vertical axis (cos, sin): 45 degrees in the Colosseum, the bridge art's own angle on the lane
 let CS=IC,SN=IC;
@@ -3140,7 +3140,7 @@ function handSprite(hot){const key=hot?'h':'n';if(handCache[key])return handCach
     g.fillStyle=ch==='#'?pal.o:HAND[y][x+1]==='#'?pal.sh:HAND[y][x-1]==='#'?pal.hi:pal.f;g.fillRect(x,y,1,1);}
   return handCache[key]=c;}
 // ---- settings: controls, cursor and camera, remembered in this browser ----
-const SET={scheme:'modern',cursor:'hand',amove:'click',sens:100,cam:100,lead:'low',gfx:'sharp'};
+const SET={scheme:'modern',cursor:'hand',amove:'click',sens:100,cam:100,lead:'low',gfx:'pixel'};
 try{Object.assign(SET,JSON.parse(localStorage.getItem('riftline.settings')||'{}'));}catch(e){}
 GFX=SET.gfx;resize();
 const classic=()=>SET.scheme==='classic';
@@ -3151,7 +3151,7 @@ const keyName=k=>classic()?({RMB:'W'}[k]||k):k==='RMB'?'Right click':k;
 const abOrder=()=>classic()?['Q','RMB','E','R']:ABK;
 const kitItems=d=>`${d.passive?`<li><kbd>P</kbd><span>${d.passive.name} (passive)</span></li>`:''}${abOrder().map(k=>`<li><kbd>${keyLabel(k)}</kbd><span>${d.ab[k].name}</span></li>`).join('')}<li><kbd>SPACE</kbd><span>${d.dash.name}</span></li>`;
 const CTL_OPTS=[{k:'scheme',label:'Controls',seg:[['modern','WASD'],['classic','Point and click']]},{k:'amove',label:'Attack-move',seg:[['click','A + click'],['key','A only']]},
-  {k:'cursor',label:'Cursor',seg:[['hand','Hand'],['cross','Crosshair']]},{k:'lead',label:'Camera lead',seg:[['off','Off'],['low','Low'],['high','High']]},{k:'gfx',label:'Map look',seg:[['sharp','Sharp'],['pixel','Pixel']]},{k:'sens',label:'Cursor speed',range:[30,150,5]},{k:'cam',label:'Camera speed',range:[30,200,10]}];
+  {k:'cursor',label:'Cursor',seg:[['hand','Hand'],['cross','Crosshair']]},{k:'lead',label:'Camera lead',seg:[['off','Off'],['low','Low'],['high','High']]},{k:'gfx',label:'Map look',seg:[['pixel','Pixel'],['sharp','Smooth']]},{k:'sens',label:'Cursor speed',range:[30,150,5]},{k:'cam',label:'Camera speed',range:[30,200,10]}];
 for(const id of ['menuCtl','pauseCtl'])$(id).innerHTML=CTL_OPTS.map(o=>o.seg?`<div class="opt"><label>${o.label}</label><div class="seg" data-set="${o.k}">${o.seg.map(([v,t])=>`<button type="button" data-v="${v}">${t}</button>`).join('')}</div></div>`
   :`<div class="opt"><label>${o.label}<output data-out="${o.k}"></output></label><input type="range" data-set="${o.k}" aria-label="${o.label}" min="${o.range[0]}" max="${o.range[1]}" step="${o.range[2]}"></div>`).join('');
 function setSetting(k,v){SET[k]=v;try{localStorage.setItem('riftline.settings',JSON.stringify(SET));}catch(e){}syncSettingsUI();if(k==='scheme'||k==='amove')applySettings();if(k==='gfx'){GFX=v;resize();}}
