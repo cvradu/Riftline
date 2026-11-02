@@ -1523,7 +1523,7 @@ function drawMantisIcon(g,k){
   if(k==='DASH'){g.strokeStyle=Gn;g.lineWidth=2.6;for(let i=0;i<3;i++){g.beginPath();g.moveTo(8+i*3,40-i*9);g.lineTo(28+i*3,40-i*9);g.stroke();}poly([[30,42],[40,22],[46,26],[36,42]],M,D,1.4);poly([[40,22],[46,14],[44,26]],Gn);}}
 // ================= Thistle: a garden mage riding Mother, a huge carnivorous plant =================
 // Art: the painted walk and standing sheet (assets/thistle.webp). Until it loads, and for her icons, a stand-in is painted in code.
-CH.thistle={key:'thistle',name:'Thistle',role:'Mage',reach:'Ranged',resource:'Sap',r:34,ranged:true,
+CH.thistle={key:'thistle',name:'Thistle',role:'Mage',reach:'Ranged',resource:'Sap',mana:true,r:34,ranged:true,
   blurb:'A tiny gardener riding Mother, a huge carnivorous plant. Fills the ground with a spreading cloud of poison pollen, has Mother swallow enemies and spit them back into it, walls them in with thickets of burrs that stop them dashing out, and lashes them with a thorned vine.',
   base:{hp:660,hpG:104,hp5:6,hp5G:0.6,res:320,resG:38,rg5:8,rg5G:0.7,ad:54,adG:3,as:0.66,asG:2.2,armor:30,armorG:4.2,mr:32,mrG:1.3,ms:335,range:525,windup:0.22,proj:1500},
   castKind:{Q:'swing',E:'shot',RMB:'shot',R:'slam'},
@@ -1859,7 +1859,10 @@ function releaseAttack(c){
 }
 function meleeSweep(c,ang){let best=null,bd=1e9;for(const u of attackables(c.team)){if(!targetable(u))continue;const e=edge(c,u);if(e>c.range+25)continue;if(angDiff(angTo(c,u.x,u.y),ang)>0.95)continue;const s=e+(u.kind==='champ'?-30:0);if(s<bd){bd=s;best=u;}}return best;}
 
-function costOf(c,k){const r=c.ranks[k];return r?c.def.ab[k].cost[r-1]:0;}
+// Mana champions (def.mana) pay 80% less and regenerate 3x as fast in both modes, so they don't run dry mid-fight
+const MANA={cost:0.2,regen:3};
+const abCost=(c,a,r)=>a.cost[r-1]*(c.def.mana?MANA.cost:1);
+function costOf(c,k){const r=c.ranks[k];return r?abCost(c,c.def.ab[k],r):0;}
 function canRank(c,k){if(c.points<=0)return false;if(k==='R')return c.ranks.R<(c.level>=16?3:c.level>=11?2:c.level>=6?1:0);return c.ranks[k]<Math.min(5,Math.ceil(c.level/2));}
 function rankUp(c,k){if(!canRank(c,k))return false;c.ranks[k]++;c.points--;if(c===G.player){ring(c.x,c.y,c.r,c.r+40,'#e8c06a',0.4);hudDirty=true;}return true;}
 const DASH_CD=5; // flat: ability haste does not apply
@@ -1880,7 +1883,7 @@ function tryCast(c,k,ax,ay){
   if(c.stunT>0)return'stunned';
   if(movesBlocked(c,k)&&!(c.key==='mantis'&&k==='E'))return'grounded';  // placing Mantis's copy is fine, stepping into it is not
   if(c.cast||(c.dash&&!bjAirCast(c)))return'busy';
-  const cost=a.cost[r-1];if(c.res<cost)return'resource';
+  const cost=abCost(c,a,r);if(c.res<cost)return'resource';
   const wasStealth=c.stealthT;if(k!=='RMB'&&!(c.key==='mantis'&&k==='E'))c.stealthT=0;
   c.wind=null;
   if(!a.cast(c,ax,ay,r,a)){c.stealthT=wasStealth;const why=c.failWhy||'notarget';c.failWhy=null;return why;}
@@ -2015,7 +2018,7 @@ function updateChamp(c,dt){
   if(c.stealthT>0){c.stealthT-=dt;if(c.stealthT<=0){c.stealthT=0;}}
   if(c.untargetT>0)c.untargetT=Math.max(0,c.untargetT-dt);
   c.slows=c.slows.filter(s=>s.until>G.t);
-  c.hp=Math.min(c.maxHp,c.hp+c.hp5/5*dt);c.res=Math.min(c.maxRes,c.res+c.rg5/5*dt);
+  c.hp=Math.min(c.maxHp,c.hp+c.hp5/5*dt);c.res=Math.min(c.maxRes,c.res+c.rg5/5*dt*(c.def.mana?MANA.regen:1));
   const df=dist(c,FOUNT[c.team]);if(df<FOUNT_R){c.hp=Math.min(c.maxHp,c.hp+c.maxHp*0.1*dt);if(c.def.resource!=='Corruption'&&c.def.resource!=='Fury'&&c.def.resource!=='Pressure')c.res=Math.min(c.maxRes,c.res+c.maxRes*0.1*dt);}
   if(dist(c,FOUNT[1-c.team])<FOUNT_R+80){dealDamage(FOUNT_SRC[1-c.team],c,900*dt,'true',{force:true});if(!c.alive)return;}
   const inp=c.input;
@@ -2099,7 +2102,7 @@ function botSkillPoints(c){
 }
 function estBurst(c,f){
   const pm=physMult(c,f),A=c.def.ab;let d=0,res=c.res;
-  const has=k=>{const r=c.ranks[k];if(!r||c.cds[k]>0.6)return 0;const co=A[k].cost[r-1];if(res<co)return 0;res-=co;return r;};
+  const has=k=>{const r=c.ranks[k];if(!r||c.cds[k]>0.6)return 0;const co=abCost(c,A[k],r);if(res<co)return 0;res-=co;return r;};
   if(c.key==='cora'){let r;if(c.ranks.Q&&readyAxe(c))d+=A.Q.dmg(c,c.ranks.Q)+A.Q.bleed(c,c.ranks.Q);if(r=has('RMB'))d+=A.RMB.dmg(c,r);if(r=has('E'))d+=A.E.dmg(c,r)+A.E.bleed(c,r);if(c.ranks.Q&&c.axes.Q.state!=='hand')d+=A.Q.dmg(c,c.ranks.Q)+A.Q.cleave(c,c.ranks.Q);if(r=has('R'))d+=A.R.snap(c,r,f);d=(d+c.ad*3)*(1+0.05*corrStage(c));}
   else if(c.key==='blackjack'){let r;if(r=has('Q'))d+=A.Q.dmg(c,r);if(r=has('RMB'))d+=A.RMB.dmg(c,r);if(c.ranks.R&&c.cds.R<=0.6)d+=A.R.dmg(c,c.ranks.R)*12;d+=c.ad*2+(c.loaded?bjLoaded(c):0);}
   else if(c.key==='thistle'){let r;if(r=has('Q'))d+=A.Q.dmg(c,r)*1.25;if(r=has('E'))d+=A.E.dmg(c,r)*1.2;if(r=has('R'))d+=A.R.dmg(c,r)*1.2+A.R.bite(c,r)*2;d+=thPoison(c)*6*4+c.ad*2;}
@@ -2144,7 +2147,7 @@ function botThink(c,dt){
   const dir=c.team===BLUE?1:-1,myT=G.towers[c.team]||NO_TOWER,foeT=G.towers[1-c.team]||NO_TOWER;
   const hpP=c.hp/c.maxHp,fP=foe.hp/foe.maxHp,d=vis?dist(c,foe):1e9;
   c.strafeT=(c.strafeT||0)-dt;if(c.strafeT<=0){c.strafeT=srnd(0.35,0.9);c.strafe=srand()<0.5?-1:1;}
-  const can=k=>{const r=c.ranks[k],a=A[k];if(!r||c.cast||c.dash||c.stunT>0)return false;if(a.canRecast&&a.canRecast(c))return true;if(a.avail&&a.avail(c)!==true)return false;if(a.charges)return c.chg[k]>0;return c.cds[k]<=0&&c.res>=a.cost[r-1];};
+  const can=k=>{const r=c.ranks[k],a=A[k];if(!r||c.cast||c.dash||c.stunT>0)return false;if(a.canRecast&&a.canRecast(c))return true;if(a.avail&&a.avail(c)!==true)return false;if(a.charges)return c.chg[k]>0;return c.cds[k]<=0&&c.res>=abCost(c,a,r);};
   const cast=(k,x,y)=>{if(G.t<(c.nextCast||0)||!can(k))return false;if(tryCast(c,k,x,y)==='ok'){c.nextCast=G.t+0.2;return true;}return false;};
   const dashTo=(x,y)=>{if(G.t<(c.nextCast||0)||c.dashCd>0||c.cast||c.dash||c.stunT>0)return false;if(tryDash(c,x,y)==='ok'){c.nextCast=G.t+0.2;return true;}return false;};
   const away=(len)=>{const fx=vis?foe.x:c.x+dir*100,fy=vis?foe.y:c.y;let vx=c.x-fx,vy=c.y-fy;const l=hyp(vx,vy)||1;vx=vx/l-(isCol()?0:dir*0.9);vy=vy/l;const l2=hyp(vx,vy)||1;return clampWalk(c.x+vx/l2*len,c.y+vy/l2*len,60);};
@@ -3543,7 +3546,7 @@ function renderTip(){
   if(tipK==='DASH')tip.innerHTML=`<h4>${p.def.dash.name}</h4><div class="meta">Space · ${DASH_CD}s cooldown, not reduced by ability haste</div>${p.def.dash.desc}`;
   else if(tipK==='P')tip.innerHTML=`<h4>${p.def.passive.name}</h4><div class="meta">Passive</div>${p.def.passive.desc(p)}`;
   else{const a=p.def.ab[tipK],r=p.ranks[tipK],rr=Math.max(1,r);
-  tip.innerHTML=`<h4>${a.name}</h4><div class="meta">${keyName(tipK)} · Rank ${r}/${a.max} · ${(a.cd[rr-1]*100/(100+p.ah)).toFixed(1)}s cooldown${a.cost[rr-1]?` · ${a.cost[rr-1]} ${p.def.resource.toLowerCase()}`:''}</div>${a.desc(p,rr,a)}${r===0?'<div class="meta" style="margin:6px 0 0">Not learned yet. Showing rank 1 values.</div>':''}`;}
+  tip.innerHTML=`<h4>${a.name}</h4><div class="meta">${keyName(tipK)} · Rank ${r}/${a.max} · ${(a.cd[rr-1]*100/(100+p.ah)).toFixed(1)}s cooldown${a.cost[rr-1]?` · ${Math.round(abCost(p,a,rr))} ${p.def.resource.toLowerCase()}`:''}</div>${a.desc(p,rr,a)}${r===0?'<div class="meta" style="margin:6px 0 0">Not learned yet. Showing rank 1 values.</div>':''}`;}
   tip.hidden=false;const b=tipEl.getBoundingClientRect(),tb=tip.getBoundingClientRect();
   tip.style.left=clamp(b.left+b.width/2-tb.width/2,8,VW-tb.width-8)+'px';tip.style.top=(b.top-tb.height-34)+'px';
 }
@@ -3554,7 +3557,7 @@ function hud(dt){
   if(toastT>0){toastT-=dt;if(toastT<=0)$('toast').classList.remove('on');}
   while(G.feedQ.length){const h=G.feedQ.shift();const d=document.createElement('div');d.className='fe';d.innerHTML=h;$('feed').prepend(d);setTimeout(()=>d.remove(),7000);while($('feed').children.length>5)$('feed').lastChild.remove();}
   for(const k of ABK){const s=slotEls[k];if(!s)continue;const a=p.def.ab[k],r=p.ranks[k];
-    const cd=p.cds[k],tot=r?(vikMonster(p)&&a.mcd?a.mcd:a.cd)[r-1]*100/(100+p.ah):1,cost=r?a.cost[r-1]:a.cost[0];
+    const cd=p.cds[k],tot=r?(vikMonster(p)&&a.mcd?a.mcd:a.cd)[r-1]*100/(100+p.ah):1,cost=abCost(p,a,r||1);
     const rec=!!(a.canRecast&&a.canRecast(p)),av=a.avail?a.avail(p):true,chg=a.charges?(p.chg[k]??a.charges):a.ammo?a.ammo(p):null,out=chg!==null?chg<=0:cd>0;
     const st=`${r}|${cd>0?Math.ceil(cd*10):0}|${p.res<cost}|${canRank(p,k)}|${p.alive}|${rec}|${av}|${chg}`;
     if(st===s.last)continue;s.last=st;
