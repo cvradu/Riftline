@@ -1,6 +1,6 @@
 # Riftline
 
-A browser MOBA prototype: six champions (Cora, Shade, Viktor, Black Jack, Marty Fish, M4NTi5), a space-bridge lane and a colosseum arena, bots, online 1v1 by link, and menus.
+A browser MOBA prototype: seven champions (Cora, Shade, Viktor, Black Jack, Marty Fish, M4NTi5, Thistle), a space-bridge lane and a colosseum arena, bots, online 1v1 by link, and menus.
 
 ## Layout
 
