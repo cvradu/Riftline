@@ -2489,14 +2489,18 @@ addEventListener('mouseup',e=>{if(e.button===0)mouse.left=false;if(e.button===2)
 // ================= camera & isometric projection =================
 // Simulation stays in flat world coordinates; only drawing and input go through the projection.
 // World +x (toward red) maps to screen up-right, so the lane runs diagonally like a mid lane.
-let DPR=1,VW=0,VH=0,SCALE=1,PXd=3,RS=1,ART_K=0,SHX=0,SHY=0;const cam={x:W/2,y:MIDY};const SPR=new Map();
+let DPR=1,VW=0,VH=0,SCALE=1,PXd=3,BK=3,GFX='sharp',RS=1,ART_K=0,SHX=0,SHY=0;const cam={x:W/2,y:MIDY};const SPR=new Map();
 const IC=Math.SQRT1_2,IK=0.6,CLIFF_H=110,DROP_H=190;
 // the camera's heading around the vertical axis (cos, sin): 45 degrees in the Colosseum, the bridge art's own angle on the lane
 let CS=IC,SN=IC;
 function camAngle(){const a=G&&G.mode==='col'?PI/4:LANE_ART.psi;CS=Math.cos(a);SN=Math.sin(a);}
 function resize(){DPR=Math.min(2,window.devicePixelRatio||1);VW=innerWidth;VH=innerHeight;cv.width=Math.round(VW*DPR);cv.height=Math.round(VH*DPR);SCALE=Math.min(VH/800,VW/1320);
-  // world renders into a buffer where one pixel is PXd device pixels; sprites are baked at that scale
-  PXd=Math.max(2,Math.round(2.7*SCALE*DPR));buf.width=fbuf.width=Math.ceil(cv.width/PXd);buf.height=fbuf.height=Math.ceil(cv.height/PXd);
+  // pixel sprites are baked on a grid where one art pixel is PXd device pixels
+  PXd=Math.max(2,Math.round(2.7*SCALE*DPR));
+  // the map and effects render into buffers where one pixel is BK device pixels: the sprite grid in Pixel mode,
+  // up to full resolution in Sharp mode, capped near 1600p worth of pixels (the map art holds no finer detail, and big retina screens stay smooth)
+  BK=GFX==='pixel'?PXd:Math.max(1,Math.sqrt(cv.width*cv.height/4.2e6));
+  buf.width=fbuf.width=Math.ceil(cv.width/BK);buf.height=fbuf.height=Math.ceil(cv.height/BK);
   const k=SCALE*DPR/PXd;if(Math.abs(k-ART_K)>1e-6){ART_K=k;SPR.clear();if(G&&typeof queueBakes==='function')queueBakes();}}
 addEventListener('resize',resize);resize();
 function P(x,y,z){const dx=x-cam.x,dy=y-cam.y;return{x:VW/2+(dx*CS+dy*SN)*SCALE+SHX,y:VH*0.57+((dy*CS-dx*SN)*IK-(z||0))*SCALE+SHY};}
@@ -2882,7 +2886,7 @@ function towerSprite(team,alive){
   pixelize(c,'#0d1112');s={c,ax,ay};SPR.set(key,s);return s;
 }
 function blit(s,x,y,alpha,flash){
-  const ps=s.hi?(ctx===mctx?1:1/PXd):(ctx===mctx?PXd:1),bx=s.hi?Math.round(x*RS-s.ax*ps):(Math.round(x*RS/ps)-s.ax)*ps,by=s.hi?Math.round(y*RS-s.ay*ps):(Math.round(y*RS/ps)-s.ay)*ps,w=s.c.width*ps,h=s.c.height*ps;
+  const ps=(s.hi?1:PXd)/(ctx===mctx?1:BK),bx=s.hi?Math.round(x*RS-s.ax*ps):(Math.round(x*RS/ps)-s.ax)*ps,by=s.hi?Math.round(y*RS-s.ay*ps):(Math.round(y*RS/ps)-s.ay)*ps,w=s.c.width*ps,h=s.c.height*ps;
   ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.imageSmoothingEnabled=false;ctx.globalAlpha=alpha;ctx.drawImage(s.c,bx,by,w,h);
   if(flash>0){ctx.globalCompositeOperation='lighter';ctx.globalAlpha=Math.min(1,flash);ctx.drawImage(s.c,bx,by,w,h);ctx.drawImage(s.c,bx,by,w,h);}
   ctx.restore();
@@ -3274,8 +3278,8 @@ function render(dt){
   else if(camFree||!G){cam.x=clamp(cam.x,camFree?300:650,camFree?W-300:W-650);cam.y=clamp(cam.y,camFree?MIDY-1000:MIDY-900,camFree?MIDY+1150:MIDY+1000);}  // the deck's alcoves reach well past its usual edges
   SHX=SHY=0;
   if(G&&G.shake&&G.shake.t>0){G.shake.t-=dt;const m=G.shake.mag*Math.max(0,G.shake.t/G.shake.dur);SHX=rnd(-m,m);SHY=rnd(-m,m);}
-  // world pass: low-resolution buffer, upscaled with hard pixels
-  ctx=bctx;RS=DPR/PXd;bctx.imageSmoothingEnabled=true;
+  // world pass: into its own buffer (low resolution with hard pixels in Pixel mode, full resolution in Sharp mode)
+  ctx=bctx;RS=DPR/BK;bctx.imageSmoothingEnabled=true;bctx.imageSmoothingQuality='high';
   screenT();ctx.fillStyle='#0f1613';ctx.fillRect(0,0,VW,VH);
   if(isCol())drawColTerrain();else drawTerrain();
   const t=performance.now()/1000;
@@ -3327,15 +3331,15 @@ function render(dt){
       ctx.fillStyle='#4fe08a';ctx.beginPath();ctx.moveTo(0,-20);ctx.lineTo(14,0);ctx.lineTo(0,20);ctx.lineTo(-14,0);ctx.closePath();ctx.fill();ctx.fillStyle='#d9ffe6';ctx.fillRect(-3,-9,6,18);ctx.fillRect(-9,-3,18,6);ctx.restore();}
   }
   // upscale the ground to the screen
-  ctx=mctx;RS=DPR;mctx.setTransform(1,0,0,1,0,0);mctx.imageSmoothingEnabled=false;mctx.drawImage(buf,0,0,buf.width*PXd,buf.height*PXd);
+  ctx=mctx;RS=DPR;mctx.setTransform(1,0,0,1,0,0);mctx.imageSmoothingEnabled=GFX!=='pixel';mctx.drawImage(buf,0,0,buf.width*BK,buf.height*BK);
   if(!G)return;
   // units straight onto the screen so hand-drawn sheets keep their detail; pixel sprites scale up on the same grid
   const list=[...G.towers,...G.minions,...G.champs,...G.champs.filter(c=>c.anchor&&c.alive).map(c=>({kind:'mtcopy',x:c.anchor.x,y:c.anchor.y,c})),...(isCol()?[...COL_PROPS,...G.col.plants]:[])].sort((a,b)=>(a.y-a.x)-(b.y-b.x));
   for(const u of list){if(u.kind==='tower')drawTower(u,t);else if(u.kind==='minion')drawMinion(u,t);else if(u.kind==='ruin')drawRuin(u);else if(u.kind==='portal')drawPortal(u,t);else if(u.kind==='gate')drawGate(u,t);else if(u.kind==='tuft')drawTuft(u);else if(u.kind==='plant')drawPlant(u,t);else if(u.kind==='mtcopy')drawMantisCopy(u.c,t);else drawChamp(u,t);}
   // effects in their own pixel buffer on top
-  ctx=fctx;RS=DPR/PXd;ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,fbuf.width,fbuf.height);ctx.imageSmoothingEnabled=true;
+  ctx=fctx;RS=DPR/BK;ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,fbuf.width,fbuf.height);ctx.imageSmoothingEnabled=true;
   drawSmears();drawAxeUpright(t);screenT();for(const pr of G.projs)drawProj(pr,t);drawThLash();drawTraps(t);drawHooks();drawArenaFence();if(isCol()){drawBeads(t);drawPortalMotes(t);drawEventsFx(t);drawStormFx();}drawFx();drawStatus(t);
-  ctx=mctx;RS=DPR;mctx.setTransform(1,0,0,1,0,0);mctx.imageSmoothingEnabled=false;mctx.drawImage(fbuf,0,0,fbuf.width*PXd,fbuf.height*PXd);
+  ctx=mctx;RS=DPR;mctx.setTransform(1,0,0,1,0,0);mctx.imageSmoothingEnabled=GFX!=='pixel';mctx.drawImage(fbuf,0,0,fbuf.width*BK,fbuf.height*BK);
   const p=G.player;
   // standing in an enemy's pollen cloud: the world beyond it goes murky
   if(fogged(p)){screenT();ctx.fillStyle='rgba(70,95,30,.38)';ctx.fillRect(0,0,VW,VH);}
@@ -3355,8 +3359,9 @@ function handSprite(hot){const key=hot?'h':'n';if(handCache[key])return handCach
     g.fillStyle=ch==='#'?pal.o:HAND[y][x+1]==='#'?pal.sh:HAND[y][x-1]==='#'?pal.hi:pal.f;g.fillRect(x,y,1,1);}
   return handCache[key]=c;}
 // ---- settings: controls, cursor and camera, remembered in this browser ----
-const SET={scheme:'modern',cursor:'hand',amove:'click',sens:100,cam:100,lead:'low'};
+const SET={scheme:'modern',cursor:'hand',amove:'click',sens:100,cam:100,lead:'low',look:'hd'};
 try{Object.assign(SET,JSON.parse(localStorage.getItem('riftline.settings')||'{}'));}catch(e){}
+GFX=SET.look==='pixel'?'pixel':'sharp';resize();
 const classic=()=>SET.scheme==='classic';
 // slot convention for every champion: Q damage, the E slot movement (W in point-and-click), the RMB slot utility (E in point-and-click), R ultimate
 const keyLabel=k=>classic()?({RMB:'W'}[k]||k):k;
@@ -3365,10 +3370,10 @@ const keyName=k=>classic()?({RMB:'W'}[k]||k):k==='RMB'?'Right click':k;
 const abOrder=()=>classic()?['Q','RMB','E','R']:ABK;
 const kitItems=d=>`${d.passive?`<li><kbd>P</kbd><span>${d.passive.name} (passive)</span></li>`:''}${abOrder().map(k=>`<li><kbd>${keyLabel(k)}</kbd><span>${d.ab[k].name}</span></li>`).join('')}<li><kbd>SPACE</kbd><span>${d.dash.name}</span></li>`;
 const CTL_OPTS=[{k:'scheme',label:'Controls',seg:[['modern','WASD'],['classic','Point and click']]},{k:'amove',label:'Attack-move',seg:[['click','A + click'],['key','A only']]},
-  {k:'cursor',label:'Cursor',seg:[['hand','Hand'],['cross','Crosshair']]},{k:'lead',label:'Camera lead',seg:[['off','Off'],['low','Low'],['high','High']]},{k:'sens',label:'Cursor speed',range:[30,150,5]},{k:'cam',label:'Camera speed',range:[30,200,10]}];
+  {k:'cursor',label:'Cursor',seg:[['hand','Hand'],['cross','Crosshair']]},{k:'lead',label:'Camera lead',seg:[['off','Off'],['low','Low'],['high','High']]},{k:'look',label:'Map look',seg:[['hd','HD'],['pixel','Pixel']]},{k:'sens',label:'Cursor speed',range:[30,150,5]},{k:'cam',label:'Camera speed',range:[30,200,10]}];
 for(const id of ['menuCtl','pauseCtl'])$(id).innerHTML=CTL_OPTS.map(o=>o.seg?`<div class="opt"><label>${o.label}</label><div class="seg" data-set="${o.k}">${o.seg.map(([v,t])=>`<button type="button" data-v="${v}">${t}</button>`).join('')}</div></div>`
   :`<div class="opt"><label>${o.label}<output data-out="${o.k}"></output></label><input type="range" data-set="${o.k}" aria-label="${o.label}" min="${o.range[0]}" max="${o.range[1]}" step="${o.range[2]}"></div>`).join('');
-function setSetting(k,v){SET[k]=v;try{localStorage.setItem('riftline.settings',JSON.stringify(SET));}catch(e){}syncSettingsUI();if(k==='scheme'||k==='amove')applySettings();}
+function setSetting(k,v){SET[k]=v;try{localStorage.setItem('riftline.settings',JSON.stringify(SET));}catch(e){}syncSettingsUI();if(k==='scheme'||k==='amove')applySettings();if(k==='look'){GFX=v==='pixel'?'pixel':'sharp';resize();}}
 function syncSettingsUI(){
   for(const el of document.querySelectorAll('.seg[data-set]'))for(const b of el.children)b.setAttribute('aria-pressed',String(b.dataset.v===SET[el.dataset.set]));
   for(const el of document.querySelectorAll('input[data-set]'))if(+el.value!==SET[el.dataset.set])el.value=SET[el.dataset.set];
@@ -3618,7 +3623,7 @@ function drawMini(){
 // The camera turns to the art's own heading on this map, so the art is drawn exactly as painted, at one uniform scale: its deck runs along the world x axis,
 // the platform glows sit on the fountains and the small emblems under the towers; mirrored copies pad it so the abyss runs past the screen edge.
 const LANE_ART=(function(){const L=[309.9,731.0],R=[1680.7,111.8],psi=Math.atan((L[1]-R[1])/(R[0]-L[0])/IK);
-  return{L,psi,cs:Math.cos(psi),sn:Math.sin(psi),sig:(FOUNT[1].x-FOUNT[0].x)*Math.cos(psi)/(R[0]-L[0]),off:[-3,-70],pad:0,res:2,thumb:[1008,431],img:null,src:null};})();
+  return{L,psi,cs:Math.cos(psi),sn:Math.sin(psi),sig:(FOUNT[1].x-FOUNT[0].x)*Math.cos(psi)/(R[0]-L[0]),off:[-3,-70],pad:0,res:4,thumb:[1008,431],img:null,src:null};})();
 const laneArtW=(ix,iy)=>{const A=LANE_ART,u=A.sig*(ix-A.L[0]),v=A.sig*(iy-A.L[1])/IK;return{x:FOUNT[0].x+u*A.cs-v*A.sn+A.off[0],y:FOUNT[0].y+u*A.sn+v*A.cs+A.off[1]};};
 (function(){const im=new Image();im.onload=()=>{LANE_ART.img=im;LANE_ART.src=im;for(const btn of document.querySelectorAll('#maps .mapcard[data-v="lane"]'))drawMapThumb(btn.querySelector('canvas'),'lane');};im.src='assets/lane2.webp';})();
 // the space beyond the bridge, drawn behind it and drifting more slowly than the camera
@@ -3656,7 +3661,8 @@ const COL={cx:3200,cy:650,R:1060,WALL_H:130,PARAPET:30,STORM_DELAY:40,STORM_TIME
   CP_R:270,CP_OPEN:20,CP_TIME:4,CP_EVERY:35,PORTAL_OPEN:8,PORTAL_CD:12,PORTAL_R:44};
 const colPt=(deg,r)=>{const a=deg*PI/180;return{a,x:COL.cx+Math.cos(a)*r,y:COL.cy+Math.sin(a)*r};};
 // the painted arena: the art is the floor, and its pixels map onto the world (k art px per world unit across the screen, v extra squash down it)
-const ARENA_ART={cx:628,cy:552,k:0.47,v:1.15,img:null};
+// cx, cy and k are in the original 1254px art's pixels; res is how many times larger the shipped image is
+const ARENA_ART={cx:628,cy:552,k:0.47,v:1.15,res:4,img:null};
 (function(){const im=new Image();im.onload=()=>{ARENA_ART.img=im;for(const btn of document.querySelectorAll('#maps .mapcard[data-v="col"]'))drawMapThumb(btn.querySelector('canvas'),'col');};im.src='assets/arena.webp';})();
 const artReady=()=>!!ARENA_ART.img;
 const artW=(ix,iy)=>{const A=ARENA_ART,u=(ix-A.cx)/A.k/IC,w=(iy-A.cy)/(A.k*A.v*IK*IC);return{x:COL.cx+(u-w)/2,y:COL.cy+(u+w)/2};};
@@ -3936,7 +3942,7 @@ function buildColProps(){const R=mulberry(23);COL_PROPS=[];
   for(const q of COL.portals){const g=colPt(q.d,COL.R+6);COL_PROPS.push({kind:'gate',x:g.x,y:g.y,d:q.d});}}
 function drawColTerrain(){
   if(artReady()){screenT();const A=ARENA_ART,im=A.img,c=P(COL.cx,COL.cy),sx=SCALE/A.k,sy=SCALE/(A.k*A.v);
-    ctx.fillStyle='#242830';ctx.fillRect(0,0,VW,VH);ctx.drawImage(im,c.x-A.cx*sx,c.y-A.cy*sy,im.width*sx,im.height*sy);return;}
+    ctx.fillStyle='#242830';ctx.fillRect(0,0,VW,VH);ctx.drawImage(im,c.x-A.cx*sx,c.y-A.cy*sy,im.width/A.res*sx,im.height/A.res*sy);return;}
   groundT(0);ctx.fillStyle='#0c0907';ctx.fillRect(COL.cx-4000,COL.cy-4000,8000,8000);
   if(!colGround)buildColGround();ctx.drawImage(colGround.c,colGround.ox,colGround.oy);
 }
@@ -4071,7 +4077,7 @@ function drawBeads(t){const C=G.col;screenT();
     ctx.fillStyle=gr;ctx.beginPath();ctx.arc(q.x,q.y,r*2.4,0,TAU);ctx.fill();ctx.fillStyle='#e9ffd8';ctx.beginPath();ctx.arc(q.x-2*SCALE,q.y-2*SCALE,2*SCALE,0,TAU);ctx.fill();}}
 function drawColMini(g,w,h){const s=Math.min(w/(2*COL.rbMax+120),h/((2*COL.rbMax+120)*IK)),f=(x,y)=>[w/2+((x-COL.cx)+(y-COL.cy))*IC*s,h/2+((y-COL.cy)-(x-COL.cx))*IC*IK*s];
   g.clearRect(0,0,w,h);
-  if(artReady()){const A=ARENA_ART,im=A.img,sx=s/A.k,sy=s/(A.k*A.v);g.imageSmoothingEnabled=true;g.drawImage(im,w/2-A.cx*sx,h/2-A.cy*sy,im.width*sx,im.height*sy);}
+  if(artReady()){const A=ARENA_ART,im=A.img,sx=s/A.k,sy=s/(A.k*A.v);g.imageSmoothingEnabled=true;g.drawImage(im,w/2-A.cx*sx,h/2-A.cy*sy,im.width/A.res*sx,im.height/A.res*sy);}
   else{g.fillStyle='#3a2f22';g.beginPath();for(let i=0;i<COL.N;i+=6){const th=i/COL.N*TAU,r=COL.rb[i],p=f(COL.cx+Math.cos(th)*r,COL.cy+Math.sin(th)*r);g.lineTo(p[0],p[1]);}g.closePath();g.fill();
     g.fillStyle='#2f6a34';for(const b of COL.bushes){const p=f(b.x,b.y);g.beginPath();g.ellipse(p[0],p[1],b.r*s,b.r*s*IK,0,0,TAU);g.fill();}
     g.fillStyle='#8d7d65';for(const o of COL.rocks){const p=f(o.x,o.y);g.fillRect(p[0]-2,p[1]-2,4,4);}}
@@ -4091,7 +4097,7 @@ function drawMapThumb(cv2,kind){const g=cv2.getContext('2d'),w=cv2.width,h=cv2.h
   else if(kind==='lane'){shape([[-150,-40],[150,-40],[150,40],[-150,40]],'#3a3d35');shape([[-150,-44],[150,-44],[150,-40],[-150,-40]],'#202b27');
     for(const [x,col] of [[-120,TEAMC[BLUE]],[120,TEAMC[RED]]]){const q=iso(x,0);g.fillStyle='#1a1f1e';g.fillRect(q[0]-5,q[1]-22,10,22);g.fillStyle=col;g.beginPath();g.arc(q[0],q[1]-24,5,0,TAU);g.fill();}
     for(let i=0;i<5;i++){const a=iso(-60+i*10,-10+(i%2)*14),b2=iso(60-i*10,10-(i%2)*14);g.fillStyle=TEAMC[BLUE];g.fillRect(a[0]-2,a[1]-4,4,4);g.fillStyle=TEAMC[RED];g.fillRect(b2[0]-2,b2[1]-4,4,4);}}
-  else if(artReady()){const im=ARENA_ART.img,sc=Math.min(w/1000,h/900)*1.05;g.imageSmoothingEnabled=true;g.drawImage(im,w/2-628*sc,h/2-575*sc,im.width*sc,im.height*sc);}
+  else if(artReady()){const im=ARENA_ART.img,sc=Math.min(w/1000,h/900)*1.05;g.imageSmoothingEnabled=true;g.drawImage(im,w/2-628*sc,h/2-575*sc,im.width/ARENA_ART.res*sc,im.height/ARENA_ART.res*sc);}
   else{const ring=(r,col)=>{const pts=[];for(let i=0;i<40;i++){const a=i/40*TAU;pts.push([Math.cos(a)*r,Math.sin(a)*r]);}shape(pts,col);};
     ring(110,'#2a211c');ring(96,'#7a6345');ring(30,'#5a4f45');
     g.fillStyle='#2f6a34';for(const a of [0,90,180,270,-45,135]){const q=iso(Math.cos(a*PI/180)*(a%90?55:90),Math.sin(a*PI/180)*(a%90?55:90));g.beginPath();g.ellipse(q[0],q[1],9,5,0,0,TAU);g.fill();}
