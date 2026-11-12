@@ -15,7 +15,7 @@ A browser MOBA prototype by Vlad (GitHub `cvradu`). It has seven champions, two 
 | Path | What it holds |
 |---|---|
 | `index.html` | The whole game in one file (about 4,600 lines): simulation, champions (`const CH`), bots, netcode, rendering, menus, SFX |
-| `assets/` | Sprite atlases (`.webp`), voice lines (`assets/vo/`), maps, icons and effects the game loads (`.webp`), built from `source-art/` by `tools/` |
+| `assets/` | Sprite atlases, maps, icons and effects the game loads (`.webp`), plus voice lines in `assets/vo/`, built from `source-art/` by `tools/` |
 | `source-art/` | Original art exactly as Vlad sent it, numbered in the order received. Never edit these; regenerate `assets/` from them |
 | `tools/` | Python scripts that cut sheets, remove backgrounds, align frames on the feet and pack atlases into `assets/` (`atlas_<champ>.py`, plus per-champion folders) |
 | `tests/` | Playwright scripts: bot matches, mechanics checks, screenshots, online sync |
