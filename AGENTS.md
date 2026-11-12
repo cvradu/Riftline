@@ -4,19 +4,18 @@ This file is for coding agents (Codex, Claude, or anything else that reads `AGEN
 
 ## What Riftline is
 
-A browser MOBA prototype by Vlad (GitHub `cvradu`). It has seven champions in progress, two maps, bots, online 1v1 by link, and menus.
+A browser MOBA prototype by Vlad (GitHub `cvradu`). It has seven champions, two maps, bots, online 1v1 by link, and menus.
 
 - **Modes / maps:** the **Lane** (a space-bridge lane with towers and minion waves; Vlad calls this mode "ARAM") and the **Colosseum** (a best-of-3 1v1 duel arena with bushes, healing plants and a closing storm). These are the only two modes.
-- **Roster on `main`:** Cora (Coralisse), Shade, Viktor, Black Jack, Marty Fish, M4NTi5 ("Mantis"). `const ROSTER` in `index.html`.
-- **Eighth slot in progress:** Thistle, on an unmerged branch (see "Open work").
+- **Roster:** Cora (Coralisse), Shade, Viktor, Black Jack, Marty Fish, M4NTi5 ("Mantis"), Thistle. `const ROSTER` in `index.html`.
 - Controls: every champion has a passive, Q, RMB, E, R, and a Space dash. The "W" slot in design talk maps to RMB in the game.
 
 ## Repo layout and how to run
 
 | Path | What it holds |
 |---|---|
-| `index.html` | The whole game in one file (about 4,400 lines): simulation, champions (`const CH`), bots, netcode, rendering, menus, SFX |
-| `assets/` | Sprite atlases, maps, icons and effects the game loads (`.webp`), built from `source-art/` by `tools/` |
+| `index.html` | The whole game in one file (about 4,600 lines): simulation, champions (`const CH`), bots, netcode, rendering, menus, SFX |
+| `assets/` | Sprite atlases (`.webp`), voice lines (`assets/vo/`), maps, icons and effects the game loads (`.webp`), built from `source-art/` by `tools/` |
 | `source-art/` | Original art exactly as Vlad sent it, numbered in the order received. Never edit these; regenerate `assets/` from them |
 | `tools/` | Python scripts that cut sheets, remove backgrounds, align frames on the feet and pack atlases into `assets/` (`atlas_<champ>.py`, plus per-champion folders) |
 | `tests/` | Playwright scripts: bot matches, mechanics checks, screenshots, online sync |
@@ -31,27 +30,21 @@ A browser MOBA prototype by Vlad (GitHub `cvradu`). It has seven champions in pr
 
 - Everything stays in `index.html`. Follow the existing style: compact one-line functions, short names, constants grouped near the champion they belong to (`BJ_*`, `MF_*`, `MT_*`, `VIK_*`, `CORA_*`).
 - A champion is a `CH.<key>` entry (`base` stats, `castKind`, `dash`, `ab` abilities, `passive`) plus a `CHAMP_INFO` entry for the menu page, a `*Frame` sprite function, an atlas in `assets/`, and bot logic.
-- Status effects are general systems, not per-champion: `bleed()`, `slow()`, `stun()`, `knockback()`, `knockUp()`, and (on the Thistle branch) `poison()` and grounding.
+- Status effects are general systems, not per-champion: `bleed()`, `poison()`, grounding, `slow()`, `stun()`, `knockback()`, `knockUp()`.
 - Art pipeline: Vlad's painted sheet goes to `source-art/<n>.png`, a script in `tools/` cuts it into `assets/<champ>.webp`, and frame metadata is pasted into `index.html`.
 - Balance is measured with Colosseum bot duels: 6 best-of-3 duels per opponent. Bot results also reflect how well each bot plays its champion, so a low win rate may be a bot problem.
 
 ## Working with Vlad
 
-- Work on a branch, open a PR, and send a commit-pinned play link. Vlad merges.
+- Work on a branch, open a PR, and send a commit-pinned play link. Vlad merges, or asks the agent to.
 - Vlad often types quickly with typos; read for intent and confirm when a request can be read two ways.
 - He likes concrete options to pick from (A/B/C per ability slot), then iterates by feel after play-testing.
 
-## Open work (branches and PRs)
+## Recently merged work
 
-None of these are merged into `main` yet. They all branch from `main` and touch `index.html`, so expect merge conflicts between them.
+Thistle, Marty's first voice line and the HD map art were merged into `main` on 2026-11-12 (PRs #1 and #2, and the HD map branch). The notes below keep the design decisions behind them.
 
-| Branch | PR | What it holds | State |
-|---|---|---|---|
-| `claude/project-thread-lthpf3` | #1 "Add poison, grounding and Thistle" | Poison status, grounding, Thistle with painted sprites, tuning, mana rule | Open, waiting on Vlad |
-| `claude/project-thread-gjrq1y` | #2 "Marty's first voice line on basic attacks" | `assets/vo/marty_attack_1.mp3` and the VO hook in `SFX` | Open, waiting on Vlad |
-| `claude/project-thread-kzni0m` | none yet | HD map art: lane and arena upscaled 4x with Real-ESRGAN (`tools/upscale/`), "Map look" setting HD (default) / Pixel | Pushed, no PR. Vlad hadn't confirmed it looks good |
-
-### Thistle (new champion, PR #1)
+### Thistle (new champion)
 
 Area-control garden mage. A cheerful kid gardener riding **Mother**, a huge, menacing carnivorous plant. Resource: mana ("Sap" in the fiction). Picked because the roster had no caster, controller or summoner.
 
@@ -71,7 +64,7 @@ Area-control garden mage. A cheerful kid gardener riding **Mother**, a huge, men
 
 **Balance (2026-10-30, before the mana change):** won 19 of 36 Colosseum duels. Strong vs Black Jack and Cora, hard-countered by Marty and Mantis (0 to 6 each). Whole-roster overall win rates: Marty 64%, Black Jack 56%, Thistle 56%, Mantis 53%, Shade 47%, Viktor 39%, Cora 36%. Her balance should be re-measured after the mana change.
 
-### Marty Fish voice lines (PR #2)
+### Marty Fish voice lines
 
 Marty is a tiny squid in a salvage mech who speaks through a robot translator. He doesn't fully understand human customs, so the humor comes from misused turns of phrase and literal-minded idioms.
 
@@ -80,9 +73,9 @@ Marty is a tiny squid in a salvage mech who speaks through a robot translator. H
 - Vlad records the lines himself. Recordings go in `assets/vo/` and the VO table in `SFX.voice`. The first one, `marty_attack_1.mp3`, plays with a 12% chance per basic attack, then at least 12s of silence, because Vlad wants lines "occasionally, not very often".
 - Keep any new Marty lines or barks in this voice.
 
-### Map sharpness (branch `claude/project-thread-kzni0m`)
+### Map sharpness (HD map art)
 
-Vlad said the map looked pixelated. Findings: the map paintings are small (lane about 1700px wide, arena 1254px) and the camera blows them up about 5x. Rendering at full resolution with smooth scaling made it look worse (blurry, smeared), so that was reverted. The fix was a 4x Real-ESRGAN upscale of both maps (`tools/upscale/sr.py`, `lane_build.py`), rendered at full resolution, with Pixel kept as an option. Layout, walls and brush positions are unchanged. The bigger images use about 200MB of GPU memory. Before/after images: ask Vlad. Next step: get Vlad's verdict, then open a PR.
+Vlad said the map looked pixelated. Findings: the map paintings are small (lane about 1700px wide, arena 1254px) and the camera blows them up about 5x. Rendering at full resolution with smooth scaling made it look worse (blurry, smeared), so that was reverted. The fix was a 4x Real-ESRGAN upscale of both maps (`tools/upscale/sr.py`, `lane_build.py`), rendered at full resolution, with Pixel kept as an option. Layout, walls and brush positions are unchanged. The bigger images use about 200MB of GPU memory. The "Map look" setting in the menu is HD (default) or Pixel. Before/after images: ask Vlad.
 
 ## Ideas that were pitched but not chosen
 
